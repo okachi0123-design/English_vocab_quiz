@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+
+# 個人データ（重要）
+vocab.xlsx
+*.xlsx
+data/
+
+# エディタ
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
