@@ -1,5 +1,6 @@
 import openpyxl
-wb = openpyxl.load_workbook("/mnt/c/Users/okach/OneDrive/English/TOEIC_730_30day_checklist (1).xlsx")
+from config import EXCEL_PATH
+wb = openpyxl.load_workbook(EXCEL_PATH)
 
 ws1 = wb["単語ログ"]
 ws2 = wb["フレーズログ"]
