@@ -33,5 +33,6 @@ Try 'head --help' for more information. とエラー
 - ↑解決したが、headなので2以降はそれより前の行も表示するので重複する
 ### 解決
 - head -n $i(-$i)としなければiを代入箇所と認識しない*そもそもheadが間違い
+- head -$i shufw.txt|tail -1 で一行表示
 
 
