@@ -19,3 +19,4 @@ data/
 .DS_Store
 Thumbs.db
 config.py
+csv.d/
