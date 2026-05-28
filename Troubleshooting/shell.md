@@ -30,6 +30,8 @@ Try 'head --help' for more information. とエラー
 - `head -i` : `-i` オプションは存在しない（行数指定は `-n`）
 - `head -n i` にしてもhead: invalid number of lines: ‘i’
 - そもそもiを１～コマンドの引数までの１ずつと認識しない
+- ↑解決したが、headなので2以降はそれより前の行も表示するので重複する
 ### 解決
+- head -n $iとしなければiを代入箇所と認識しない*そもそもheadが間違い
 
 
