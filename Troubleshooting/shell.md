@@ -15,7 +15,7 @@
 （ここに結果を貼る）
 ## 問題のコード
 ```bash
-for i in `seq 1 $10`
+for i in `seq 1 $1`
 do
         head -i shuf.txt
 done
@@ -28,8 +28,8 @@ Try 'head --help' for more information. とエラー
 ### 問題点
 - `$10` : シェルは「10番目の引数」と解釈する（`$1` + 文字 "0" ではない）
 - `head -i` : `-i` オプションは存在しない（行数指定は `-n`）
-- `head -n 1` に直しても毎回先頭行が出るだけで、1行ずつ順番に進まない
-
+- `head -n i` にしてもhead: invalid number of lines: ‘i’
+- そもそもiを１～コマンドの引数までの１ずつと認識しない
 ### 解決
 
 
