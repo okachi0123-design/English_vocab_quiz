@@ -21,3 +21,4 @@ Thumbs.db
 config.py
 csv.d/
 shuf*.txt
+config.sh

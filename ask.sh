@@ -1,6 +1,6 @@
 #!/bin/bash
 
-shuf -n $1 csv.d/word.csv > shuf.txt
+shuf -n $1 /tmp/ENquiz/word.csv > /tmp/ENquiz/shuf.txt
 
 while IFS=',' read -r word meaning
 
@@ -11,6 +11,6 @@ while IFS=',' read -r word meaning
 	else echo "不正解"	
              echo "$meaning"
      fi
-     done < shuf.txt
+     done < /tmp/ENquiz/shuf.txt
 
 

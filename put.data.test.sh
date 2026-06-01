@@ -1,6 +1,9 @@
 #!/bin/bash
+source .venv/bin/activate
 
-python wordqz.py > csv.d/word.csv
+mkdir -p /tmp/ENquiz
 
-python phraseqz.py > csv.d/phrase.csv
+python wordqz.py > /tmp/ENquiz/word.csv
+
+python phraseqz.py > /tmp/ENquiz/phrase.csv
 
