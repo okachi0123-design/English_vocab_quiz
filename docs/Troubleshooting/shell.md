@@ -71,3 +71,27 @@ read -p "意味： " answer </dev/tty
 - リダイレクト中のループ内で対話入力したい時の定番テクニック
 - `bash -x` で変数の展開が見えてバグ特定が一発でできる
 
+## シェルとPythonの変数共有問題
+
+### 問題のコード
+```bash
+if /tmp/ENquiz/word.csv -nt EXCEL_PATH
+```
+
+### 問題点
+- `EXCEL_PATH` は config.py（Python）で定義された変数
+- シェルからは見えない（言語が違うため）
+- 比較対象が「EXCEL_PATH」という文字列リテラルとして扱われ、エラー
+
+### 解決
+シェル用にもパスを定義：
+```bash
+EXCEL_PATH="/mnt/c/Users/.../file.xlsx"
+```
+
+### 学んだこと
+- Pythonの変数とシェルの変数は別世界
+- 共有したいなら環境変数（export）か、別途定義する
+- if文は [ ] で囲む、前後にスペース必須
+
+- 
