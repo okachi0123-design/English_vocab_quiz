@@ -12,7 +12,7 @@ while IFS=',' read -r word meaning
                    echo "$meaning"
            break
               else if [ "$answer" = "$meaning" ]
-                      then echo "正解"
+                      then echo "○"
                            echo "$meaning"
                break
                       else if [ ${#answer} -lt 2 ]
@@ -20,10 +20,10 @@ while IFS=',' read -r word meaning
                                    continue
                               else hits=$(echo "$meaning"|grep "$answer")
                        if [ -n "$hits" ]
-                                      then echo "正解"
+                                      then echo "○"
                                            echo "$meaning"
                        break
-                                      else echo "不正解"
+                                      else echo "✕"
                                            echo "$meaning"
                        break
                             fi         
