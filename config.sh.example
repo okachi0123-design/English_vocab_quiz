@@ -9,3 +9,4 @@ DATA_DIR="$HOME/English_vocab_quiz/data.d"
 # 一時ファイル
 TMP_DIR=/tmp/ENquiz
 SHUF_FILE="$TMP_DIR/shuf.txt"
+COUNT_FILE="$TMP_DIR/count.txt"
