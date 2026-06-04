@@ -1,7 +1,7 @@
 #!/bin/bash 
 source config.sh
 
-bash "test.grp.ENquiz.sh" $1 |tee /tmp/ENquiz/answer.tmp
+bash "quiz.part.sh" $1 
 
 
 bash "percentage.sh" $1

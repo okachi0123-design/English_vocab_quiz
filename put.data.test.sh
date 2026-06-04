@@ -1,9 +1,8 @@
 #!/bin/bash
+source config.sh
 source .venv/bin/activate
+mkdir -p "$DATA_DIR"
 
-mkdir -p /tmp/ENquiz
-
-python wordqz.py > /tmp/ENquiz/word.csv
-
-python phraseqz.py > /tmp/ENquiz/phrase.csv
+python wordqz.py > $DATA_DIR/word.csv
+python phraseqz.py > $DATA_DIR/phrase.csv
 
