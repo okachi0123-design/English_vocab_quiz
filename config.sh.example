@@ -1,12 +1,15 @@
 #!/bin/bash
 
+# このスクリプトの置き場所を基準にする（$HOMEや実行場所に依存しない）
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Excelの場所（ローカルで更新比較時のみ。VPSでは不要）
 EXCEL_PATH="/mnt/c/Users/.../your_file.xlsx"
 
 # CSVデータディレクトリ
-DATA_DIR="$HOME/English_vocab_quiz/data.d"
+DATA_DIR="$SCRIPT_DIR/data.d"
 
 # 一時ファイル
-TMP_DIR=/tmp/ENquiz
+TMP_DIR="/tmp/ENquiz_$USER"
 SHUF_FILE="$TMP_DIR/shuf.txt"
 COUNT_FILE="$TMP_DIR/count.txt"
