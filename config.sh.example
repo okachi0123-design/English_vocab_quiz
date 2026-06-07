@@ -13,3 +13,4 @@ DATA_DIR="$SCRIPT_DIR/data.d"
 TMP_DIR="/tmp/ENquiz_$USER"
 SHUF_FILE="$TMP_DIR/shuf.txt"
 COUNT_FILE="$TMP_DIR/count.txt"
+

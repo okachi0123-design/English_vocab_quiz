@@ -1,8 +1,14 @@
 #!/bin/bash 
 source config.sh
+while true
+do
+read -p "何問挑戦する？" HOWMANY
 
-bash "quiz.part.sh" $1 
+if [ "$HOWMANY" -gt 0 -a "$HOWMANY" -lt 999 ] 2>/dev/null
 
-
-bash "percentage.sh" $1
-
+   then bash "quiz.part.sh" "$HOWMANY" 
+        bash "percentage.sh" "$HOWMANY"
+        break
+   else echo "有効な入力をしてください！"
+fi
+done
