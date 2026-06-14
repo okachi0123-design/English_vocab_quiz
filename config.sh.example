@@ -10,7 +10,7 @@ EXCEL_PATH="/mnt/c/Users/.../your_file.xlsx"
 DATA_DIR="$SCRIPT_DIR/data.d"
 
 # 一時ファイル
-TMP_DIR="/tmp/ENquiz_$$"
+TMP_DIR="/tmp/ENquiz_$USER"
 SHUF_FILE="$TMP_DIR/shuf.txt"
 COUNT_FILE="$TMP_DIR/count.txt"
 
