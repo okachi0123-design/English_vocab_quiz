@@ -12,7 +12,7 @@ if [ "$ID" -ge 1 -a "$ID" -le 999 ] 2>/dev/null
            else source VPS.config.sh "$ID"
            
                 trap '[ -n "$TMP_DIR" ] && rm -rf "$TMP_DIR"' EXIT
-
+                echo "$(head -1 "$HOME"/"$ID"_score)さんようこそ"
                 while true
                 do
                 read -p "何問挑戦する？" HOWMANY
@@ -21,7 +21,6 @@ if [ "$ID" -ge 1 -a "$ID" -le 999 ] 2>/dev/null
 
                    then bash VPS.ask.ct.sh "$HOWMANY" "$ID"
                         bash VPS.percentage.sh "$HOWMANY" "$ID"
-                        head -1 "$HOME"/"$ID"_score
                         tail -5 "$HOME"/"$ID"_score 
                         break
                    else echo "有効な入力をしてください！"
