@@ -23,3 +23,4 @@ csv.d/
 shuf*.txt
 config.sh
 data.d/
+VPS.config.sh
