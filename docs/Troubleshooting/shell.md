@@ -209,3 +209,122 @@ skip                   ← 「意味：」プロンプトが出ていない
 - tee を使わず、percentage.sh はそのスコアファイルだけ読む
 ### 学んだこと
 - 対話入力するスクリプトをパイプ（| tee 等）に繋ぐと干渉リスクがある
+
+
+## ForceCommand 経由で $1 が空になり shuf がエラー
+### 問題のコード
+```bash
+# VPS_quiz.sh
+bash ask.ct.sh $1
+bash percentage.sh $1
+```
+### 実行結果
+```
+shuf: invalid line count: '/opt/ENquiz/data.d/word.csv'
+percentage.sh: line 3: correct * 100 /  : syntax error: operand expected
+5問中問正解
+%
+```
+### 問題点
+- ForceCommand は VPS_quiz.sh を引数なしで起動する（SSHコマンドの引数を渡す経路がない）
+- $1 が空 → `shuf -n $1` がCSVパスを行数と誤解、bc に渡る式が壊れる
+- ローカルで `bash VPS_quiz.sh 5` と打っていたときは $1 に 5 が入っていたので気づかなかった
+### 解決
+```bash
+read -p "何問挑戦する？ " HOWMANY
+# 範囲チェック（文字列入力時のエラーは 2>/dev/null で伏せ、else へ）
+if [ "$HOWMANY" -gt 0 ] 2>/dev/null && [ "$HOWMANY" -lt 999 ] 2>/dev/null
+   then bash ask.ct.sh "$HOWMANY"
+        bash percentage.sh "$HOWMANY"
+   else echo "有効な入力をしてください！"
+fi
+```
+### 学んだこと
+- ForceCommand 環境では引数を渡せない。対話入力(read)で受け取る
+- `-gt`/`-lt` は数値専用。文字列を渡すと「integer expression expected」エラー →
+  `2>/dev/null` で伏せて else に流す。または `[[ =~ ^[0-9]+$ ]]` で先に数字判定する
+
+## $$ でTMP_DIRを分けたら親子でパスがズレた
+### 問題のコード
+```bash
+# config.sh
+TMP_DIR="/tmp/ENquiz_$$"
+```
+### 実行結果
+```
+grep: /tmp/ENquiz_66283/count.txt: No such file or directory
+5問中問正解
+0%
+```
+### 問題点
+- $$ は「自プロセスのPID」。VPS_quiz.sh / ask.ct.sh / percentage.sh はそれぞれ別プロセス
+- 各スクリプトが source config.sh するたびに、自分のPIDで TMP_DIR を計算
+- ask.ct.sh が count.txt を書く場所と、percentage.sh が読む場所がズレた
+- （$USER のときは全員 challenger で同じ値になり、たまたま一致していた）
+### 解決
+- 親で `export QUIZ_SESSION="$$"` すれば子に引き継げて直るが、TMP区別のためだけに
+  導入するのは過剰と判断
+- どうせスコア機能で名前を read で登録・認証する → その名前を TMP 区別にも使い、
+  同時接続のTMP衝突も一緒に解決する方針に切り替え（現状は未対応のまま保留）
+### 学んだこと
+- $$ はプロセスごとに変わる。複数スクリプトで共通の値を使うには親で確定して export する
+- export したシェル変数は環境変数として子プロセスに引き継がれる（無印は引き継がれない）
+- 個別の対症療法より、これから作る機能（名前管理）に吸収できないかを先に考えると無駄がない
+
+## 公開鍵のコピペで改行・スペースが混入し認証失敗
+### 問題のコード
+```bash
+# 改行が混入した例
+echo "ssh-ed25519 AAAAC3NzaC1lZDI1
+NTE5AAAA...leb4Ko sigure@
+sigurenoMacBook-Air.local" | sudo tee -a /home/challenger/.ssh/authorized_keys
+
+# スペースが消えてくっついた例
+...leb4Koshigure@shigurenoMacBook-Air.local
+
+# cat で書こうとした / ssh-ed25519 が抜けた例
+cat ssh-ed25519 AAAA... | sudo tee -a ...
+echo "AAAA...（本体だけ）" | sudo tee -a ...
+```
+### 問題点
+- メッセージアプリが長い1行を折り返し、コピー時に改行が混入 → authorized_keys で複数行に割れる
+- 鍵本体とコメントの間のスペースが消えると、鍵データが壊れて認証失敗
+- `cat` は引数をファイル名と解釈する（文字列を書くなら echo）
+- `ssh-ed25519`（種類）が抜けると sshd が鍵を解釈できない
+### 解決
+```bash
+# echo + クォートで1行を正確に書き込む
+echo "ssh-ed25519 AAAA...（完全な1行）... user@host" \
+    | sudo tee -a /home/challenger/.ssh/authorized_keys
+# 確認（各行が独立した1行か）
+sudo cat /home/challenger/.ssh/authorized_keys
+# 割れていたら nano で改行を削除して1行に繋げる（テスト鍵の行は触らない）
+```
+### 学んだこと
+- 公開鍵は必ず1行。スペースは「種類の後」「鍵本体の後（コメント前）」の2箇所だけ
+- コメント（user@host）は認証に使われないが、鍵本体が切れると認証は失敗する
+- 書き込みは cat ではなく echo（文字列を出力）。スペースを含むのでクォート必須
+- authorized_keys は複数行可。各行が独立した「許可された公開鍵」。コメントで誰の鍵か識別できる
+
+## sudo echo > file で書き込めない（リダイレクトの権限）
+### 問題のコード
+```bash
+sudo echo "..." > /home/challenger/.ssh/authorized_keys
+```
+### 実行結果
+```
+bash: /home/challenger/.ssh/authorized_keys: Permission denied
+```
+### 問題点
+- sudo が効くのは echo だけ
+- リダイレクト > を処理するのは呼び出し側シェル（非昇格の現ユーザー権限）
+- root所有ディレクトリへの書き込みが現ユーザー権限で行われ、拒否される
+### 解決
+```bash
+echo "..." | sudo tee -a /home/challenger/.ssh/authorized_keys
+```
+### 学んだこと
+- `>` はシェルの機能、`tee` は外部コマンド。sudo はコマンドにしか効かない
+- tee 自体を sudo で昇格させれば、書き込み動作そのものが root 権限になる
+- `-a` は追記。authorized_keys のように1行ずつ足していくファイルと相性がよい
+
