@@ -1,5 +1,5 @@
 #!/bin/bash
-
+cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 source config.sh
 
 if [ ! -e $DATA_DIR/word.csv -o ! -e $DATA_DIR/phrase.csv ]

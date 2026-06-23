@@ -1,3 +1,4 @@
+cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 source config.sh
 correct=$(grep -c "1" "$COUNT_FILE")
 percentage=$(( correct * 100 / $1 ))
