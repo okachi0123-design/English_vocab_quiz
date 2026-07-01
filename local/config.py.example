@@ -1,0 +1,3 @@
+# Copy this file to config.py and edit EXCEL_PATH for your environment.
+
+EXCEL_PATH = "/mnt/c/Users/your-name/Documents/vocab.xlsx"

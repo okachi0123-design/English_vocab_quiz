@@ -5,12 +5,27 @@ __pycache__/
 venv/
 .venv/
 
-# 個人データ（重要）
+# Personal data
 vocab.xlsx
 *.xlsx
-data/
 
-# エディタ
+# Quiz data
+data.d/*
+!data.d/.gitkeep
+
+vps/data.d/*
+!vps/data.d/.gitkeep
+
+# Generated CSV / temporary files
+csv.d/
+shuf*.txt
+
+# Local config files
+config.py
+config.sh
+VPS.config.sh
+
+# Editor
 .vscode/
 .idea/
 *.swp
@@ -18,9 +33,3 @@ data/
 # OS
 .DS_Store
 Thumbs.db
-config.py
-csv.d/
-shuf*.txt
-config.sh
-data.d/
-VPS.config.sh
