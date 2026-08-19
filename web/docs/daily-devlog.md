@@ -40,14 +40,28 @@ def greet():
 
 ### 作業内容
 #### データベースモデル(pydantic)の作成
-- 
+```
+from pydantic import BaseModel
+
+class Phrase(BaseModel):
+    id: int
+    word: str
+    meaning: str
+```
+#### 全体の流れの整理
+- GETとPOSTの流れを決定
+- データの流れを整理
 
 ### 設計・判断
 #### アプリの形式
 - FastAPI+PostgreSQLのVPS運用版WebアプリとS3フロントエンド+APIゲートウェイ+AWS Lambda+PostgreSQLのAWS運用版Webアプリの２形式で行う
-- 
+#### クイズ形式
+- １問ずつ解答、採点を繰り返す予定から、挑戦数の問題を一気に表示して解答に変更
+- 理由：GET、POSTを繰り替えさなければならないから。
 ### 学んだこと
+- GETとPOSTは同じfor内に入れられない
 
 ### エラー・解決
-
+- GET（問題、解答取得）とPOST（解答入力）の繋げ方
 ### 次回やること
+- GET,POSTの記述
