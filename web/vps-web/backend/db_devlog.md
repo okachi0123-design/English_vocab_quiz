@@ -42,5 +42,24 @@ class SQLQuestion(Base):
 - SQLAlchemyの`create_engine`を使用
 - 引数のurlをdb_url変数に挿入
 #### .env
-- 環境用の隠しファイル
--dbのurl,passwordなど
+- 環境用の隠しファイル(データベースのurl,passwordなど)
+- `.gitignore`に`.env`を登録
+- python-dotenvをインストール
+- .envファイル内で変数にURLを挿入
+  `DATABASE_URL = データベース接続用URL`
+- URLを使うDB設定ファイル内に`dotenv`ライブラリから(load_dotenv)をインポートし`.env`から環境変数をロードできるにする
+- osモジュールをインポートし、環境変数を変更可能にする
+- `load_dotenv()`でロードする
+- create_engineで指定する変数urlにURLを挿入
+```
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+db_url = os.getenv("DATABASE_URL")
+
+```
+
+####
+
