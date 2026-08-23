@@ -29,4 +29,18 @@ class SQLQuestion(Base):
     meaning = Column(String)
 ```
 
-### 
+### DB設定ファイルの設計
+#### Session
+- DBへの接続を確立するための設計
+- SQLAlchemyの`sessionmaker`を利用
+- sessionmaker関数の設定
+`autocommit=False:データベース変更を確定する時にcommit()を必要に`
+`autoflush=False:変更をデータベースに送る前にflush()[commitだけでもOK]やcommit()を必要に`
+`bind=engine:接続用エンジン指定`
+#### Engine
+- DBに接続させるエンジン
+- SQLAlchemyの`create_engine`を使用
+- 引数のurlをdb_url変数に挿入
+#### .env
+- 環境用の隠しファイル
+-dbのurl,passwordなど
