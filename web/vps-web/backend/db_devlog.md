@@ -74,3 +74,39 @@ db_url = os.getenv("DATABASE_URL")
 - DB,モデル,DB接続用ファイル,上記コードがあればWebサーバーを起動することでテーブルが作成される
 
 #### テーブルの初期値の導入
+- テーブル内にデータが無いときにデータを書きこむ
+- 設定ファイルで記述したengineとSessionLocalを使う
+- sessionオブジェクトのメソッド一覧
+```
+.query(Model).all()  # 検索
+.add(data)           # 追加予定として登録
+.delete(data)        # 削除予定として登録
+.flush()             # SQLを送信のみ行う
+.commit()            # 変更を確定
+.rollback()          # 変更を取り消す
+.refresh(data)       # データベースから最新状態を再取得
+.close()             # Sessionが使った接続などを閉じる
+```
+- データを書きこんだらcommitし、closeする
+- 注：リストデータをその関数の前に用意する必要有
+
+```
+def init_db():
+    db = SessionLocal()
+
+    count = db.query(sql_dbmodels.SQLQuestion).count()
+
+    if count == 0:
+
+        for question in questions:
+           db.add(sql_dbmodels.SQLQuestion(**question.model_dump()))
+        db.commit()
+    db.close()
+
+init_db()
+```
+#### テーブルないデータの確認
+- PGAdminでテーブルまで行く
+- テーブルを右クリック、View/Edit dataでAll Rawsを選択
+
+
