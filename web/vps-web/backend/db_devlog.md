@@ -61,5 +61,16 @@ db_url = os.getenv("DATABASE_URL")
 
 ```
 
-####
+### DBの作成
+- SQLAlchemyはDBを使うツールであり、作るものではないので先に作る必要がある
+- PGAdminを開き、Databasesを右クリックでcreateを選択、さらにDatabaseを選択して名前を決める
+- URLのDBの名前を作成したDBにする
+### テーブル
+#### テーブルの作成
+- SQLAlchemyのBaseに登録したモデルを使ってテーブルを作成できる
+`sql_dbmodels.Base.metadata.create_all(bind=engine) `
+- モデルクラスをもとに、DBへ対応するテーブルを作成する
+- すでにテーブルがある場合は、基本的に新しく作り直さない
+- DB,モデル,DB接続用ファイル,上記コードがあればWebサーバーを起動することでテーブルが作成される
 
+#### テーブルの初期値の導入
