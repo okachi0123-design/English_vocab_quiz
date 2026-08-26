@@ -1,7 +1,6 @@
 # 日ごとの開発記録
 ## 日時
 ### 作業内容
-#### 環境構築
 ### 設計・判断
 ### 学んだこと
 ### エラー・解決
@@ -80,7 +79,6 @@ class Phrase(BaseModel):
 - 上のテスト
 - 解答用のデータモデル追加
 - POST（解答受付と採点機能）の制作とテスト
-#### 環境構築
 ### 設計・判断
 #### 解答受付と採点機能
 - 解答とidの組み合わせのリストを受け取り、それをfor上から採点する形式に（FastAPIがJSONでリストのように送るから）
@@ -125,7 +123,7 @@ ask.py(採点機能)の返り値を合計して正答数を割り出していた
 - 各問題の〇✕を返したいときfor文中に'yield'を入れて毎回返すのではなく、リスト追記で同時に返した方が良い。理由：１つずつ送る場合、フロントエンドが複雑になるから。この場合だと処理が小さくリストによる一斉送信で十分。
 ### エラー・解決
 ### 次回やること
-- POSTにDB接続機能追加
+- DB接続機能追加
 
 
 ## 2026-08-24
@@ -133,11 +131,57 @@ ask.py(採点機能)の返り値を合計して正答数を割り出していた
 #### DB作成
 - PGAdminで先にデータベースを作成
 - 先に指定したCLASSとinitdb関数でテーブルを作成、PGAdminで確認
-- 
+- `.env`の設定
 #### CRUDのDB接続
 - init_db　テーブルを数えて0ならリストから追加する関数　
-#### 環境構築
 ### 設計・判断
 ### 学んだこと
+- 環境変数ファイル`.env`の作り方
+- `.env`をファイルに適用させる方法
 ### エラー・解決
 ### 次回やること
+- CRUDとDBの接続
+
+## 2026-08-26
+### 作業内容
+#### DBセッションのライフサイクル管理と依存関係用関数の設定
+- DBにセッションする際に、アクセスを確立させてエラー時もDBとの接続を停止させるための関数`get_db`を用意した。
+- `get_db`をDBと関連する関数の依存関係に置いて、↑を各関数に適用させた
+```
+def init_db():
+    db = SessionLocal()
+
+    count = db.query(sql_dbmodels.SQLQuestion).count()
+
+    if count == 0:
+
+        for question in questions:
+           db.add(sql_dbmodels.SQLQuestion(**question.model_dump()))
+        db.commit()
+    db.close()
+```
+#### DBからランダムデータの抽出
+- SELECT * FROM テーブル名　ORDER BY RAMDOM() LIMIT 指定数;を使う
+- ORDER BY RAMDOM()をsqlalchemy上で使うために調べた
+- ↑funcのrandomを使う
+```
+from  sqlalchemy import func
+from sqlalchemy.orm import Session
+import sql_dbmodels
+
+def get_questions(attempt_count: int, db: Session):
+    questions = db.query(sql_dbmodels.SQLQuestion).order_by(func.random()).limit(attempt_count).all()
+    return questions
+```
+  
+#### 設計の練り直し
+
+### 設計・判断
+- クイズアプリのURLの流れ　ルートでトップ画面と挑戦するかを聞く→挑戦するを押すと`post("/attempt")`を開いて挑戦数を受け取る→DBから問題を受け取る→クイズ→採点→結果通知
+- "/attempt"はフロントエンドで挑戦を選択するとurlが開かれるようにする
+- `get("/quiz")`でクイズを表示し、そのままフロントエンドに残す→`post("/quiz")`で解答とidを送信→idからDBを検索し、そのリストと解答を比較という形にする
+### 学んだこと
+- 各HTTPmethodはそれぞれの変数を引き継がないので分けて考えなければならない。
+### エラー・解決
+### 次回やること
+- CRUDとDB接続　
