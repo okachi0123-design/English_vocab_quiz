@@ -160,7 +160,7 @@ def init_db():
         db.commit()
     db.close()
 ```
-#### DBからランダムデータの抽出
+#### DBからランダムデータの抽出(GETの完成)
 - SELECT * FROM テーブル名　ORDER BY RAMDOM() LIMIT 指定数;を使う
 - ORDER BY RAMDOM()をsqlalchemy上で使うために調べた
 - ↑funcのrandomを使う
@@ -173,6 +173,15 @@ def get_questions(attempt_count: int, db: Session):
     questions = db.query(sql_dbmodels.SQLQuestion).order_by(func.random()).limit(attempt_count).all()
     return questions
 ```
+- ↑の関数をgetに入れてテストし、完成
+```
+@app.get("/quiz")
+def prepare_questions(attempt_count: int, db: Session = Depends(get_db)):
+    
+    questions = get_questions(attempt_count, db)#DBから単語取得
+    
+    return questions
+```
   
 #### 設計の練り直し
 
@@ -183,5 +192,7 @@ def get_questions(attempt_count: int, db: Session):
 ### 学んだこと
 - 各HTTPmethodはそれぞれの変数を引き継がないので分けて考えなければならない。
 ### エラー・解決
+#### import忘れ
+- Session関数、get_questions関数などをimportするのを忘れていた。
 ### 次回やること
 - CRUDとDB接続　
