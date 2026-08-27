@@ -195,4 +195,24 @@ def prepare_questions(attempt_count: int, db: Session = Depends(get_db)):
 #### import忘れ
 - Session関数、get_questions関数などをimportするのを忘れていた。
 ### 次回やること
-- CRUDとDB接続　
+- CRUDとDB接続
+
+## 2026-08-27
+### 作業内容
+#### get_questionsの修正
+- これまではmeaningも含めてテーブルのランダム指定行すべての値を取ってくるようにしていたが、idとwordだけ取るようにした
+- １列ずつで取るとrowとしてデータが返されるので、それを辞書にまとめるように変更した
+### 設計・判断
+### 学んだこと
+### エラー・解決
+#### rowのJSON変換エラー
+-  原因：db.queryで１列ずつ取るとリストではなくなりJSONに変換できなかった
+-  解決：rowをfor文で辞書に挿入していく形式に変更した
+```
+ question_rows = db.query(sql_dbmodels.SQLQuestion.id, sql_dbmodels.SQLQuestion.word).order_by(func.random()).limit(attempt_count).all()
+    questions =[
+    {"id": row.id, "word": row.word}
+    for row in question_rows
+]
+```
+### 次回やること
