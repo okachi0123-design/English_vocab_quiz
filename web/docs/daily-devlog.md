@@ -216,3 +216,47 @@ def prepare_questions(attempt_count: int, db: Session = Depends(get_db)):
 ]
 ```
 ### 次回やること
+- URLの連携
+
+
+## 2026-08-31
+### 作業内容
+#### Password認証の仕組みづくりとURL連携
+- POSTの本文と.envから持ってきたパスワード変数をifで比較し、同じなら次のURLの"GET"に繋がるようにした（ifテスト済み）
+```
+@app.post("/pass") #パスワード認証
+def password_auth(entered_password :str):
+    password = os.getenv("PASSWORD")
+    if password == entered_password:
+        return RedirectResponse(
+        url="/attempt",
+        status_code=303
+        )
+    else:
+        return "Password is not correct"
+    
+```
+### 設計・判断
+- `post("/attempt")`を開いて挑戦数を受け取る→DBから問題を受け取る→クイズ の流れから `post("/attempt")`を消して　`get("/quiz")`で挑戦数を受け取り、それに応じてDBから問題を受け取って出題→`post("/quiz")`で解答を送信　という形に変更
+理由：URLのリダイレクトを学ぶ中で、POSTからPOSTへの場合は同じ本文を保持してできるが、GETへの時はできないことが分かったから
+### 学んだこと
+### エラー・解決
+
+#### `str` と `int` の型違いによるパスワード比較エラー
+
+-原因： `.env` から `os.getenv()` で取得した値は文字として取得されるが、入力パスワードのpudanticモデルを`int`にしていた
+
+```
+@app.post("/pass") #パスワード認証
+def password_auth(password, entered_password :"int"): #ここのint
+    password = os.getenv("PASSWORD")
+    if password == entered_password:
+        return RedirectResponse(
+        url="/attempt",
+        status_code=303
+    )
+```
+
+### 次回やること
+- URL連携続き
+- フロントエンド
