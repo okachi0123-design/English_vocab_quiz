@@ -8,3 +8,4 @@ class Question(BaseModel):
 class Answer(BaseModel):
     id: int
     meaning: str
+
