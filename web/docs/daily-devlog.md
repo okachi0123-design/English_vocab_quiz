@@ -260,3 +260,174 @@ def password_auth(password, entered_password :"int"): #ここのint
 ### 次回やること
 - URL連携続き
 - フロントエンド
+
+## 2026-09-01
+### 作業内容
+#### URL連携（/attemptと/quizの統合）
+- attempt内で挑戦数を聞いて、画面切り替え後にquizで挑戦をやめて同画面で行う
+#### 結果送信
+- scoreとattemptから％を計算する関数`result()`とその結果を基にメッセージを送る関数`message()`を作った
+- 小数を`round(2)`で小数第二位までにした
+
+- check_and_counter
+```
+@app.post("/quiz")
+def check_and_counter(answers: list[Answer], db: Session = Depends(get_db)):
+    score = 0
+    attempt = 0
+    results = []
+    for answer in answers:
+        is_correct = ask_question(answer,questions)
+        if is_correct == 1:  
+            results.append({
+                "result": "〇"
+            })
+        else:
+            id = answer.id
+            for question in questions:
+                if question.id == id:
+                    correct_answer = question.meaning
+                    results.append({
+                "result": "✕",
+                "answer": correct_answer
+            })
+
+    
+            
+
+        score = score + is_correct
+        attempt = attempt + 1
+
+        percentage = result(score, attempt)
+        percentage = round(percentage, 2)
+        
+        result_message = message(percentage)
+```
+- result
+```
+def result(score: int, attempt: int):
+    percentage = score/attempt*100
+    return percentage
+```
+- message
+```
+def message(percentage: float):
+    if percentage == 100:
+        return "天才"
+    elif percentage == 50:
+        return "一番おもんない"
+    elif percentage >= 90:
+        return "や、やるやん"
+    elif percentage >= 75:
+        return "そこそこ頑張ったな"
+    elif percentage >= 60:
+        return "まあまあやな"
+    elif percentage >= 40:
+        return "しょうもない点数"
+    elif percentage >= 30:
+        return "弱い"
+    elif percentage >= 20:
+        return "雑魚"
+    elif percentage >= 10:
+        return "フッw 何個かは当たってるやん"
+    elif percentage >= 0:
+        return "..."
+```
+#### 採点形式の変更
+- questionリストからid検索をして照合していたが、このリストは共有されないのでqueryでdbを再検索するように変更した
+- 変更前　check_and_counter
+```
+@app.post("/quiz")
+def check_and_counter(answers: list[Answer], db: Session = Depends(get_db)):
+    score = 0
+    attempt = 0
+    results = []
+    for answer in answers:
+        is_correct = ask_question(answer,questions)
+        if is_correct == 1:  
+            results.append({
+                "result": "〇"
+            })
+        else:
+            id = answer.id
+            for question in questions:
+                if question.id == id:
+                    correct_answer = question.meaning
+                    results.append({
+                "result": "✕",
+                "answer": correct_answer
+            })
+```
+- 変更前　　ask_question
+```
+from models import Answer
+
+def ask_question(answer: Answer,questions):
+    for question in questions:
+            if question.id == answer.id:
+                if question.meaning == answer.meaning:
+                    return 1
+                else:
+                    return 0
+
+
+
+    return 0
+```
+
+- 解決策A　ask側で毎回idからDB検索（自分だけで出来た）＋不正解時もcheck側で正答を再検索
+- check_and_counter
+```
+@app.post("/quiz")
+def check_and_counter(answers: list[Answer], db: Session = Depends(get_db)):
+    score = 0
+    attempt = 0
+    results = []
+    for answer in answers:
+        is_correct = ask_question(answer, db)
+        if is_correct == 1:  
+            results.append({
+                "result": "〇"
+            })
+        else:
+            sol_id = answer.id
+            solution = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.id == sol_id).first()
+            correct_answer = solution.meaning
+            results.append({
+                "result": "✕",
+                "answer": correct_answer
+            })
+```
+
+- ask_question
+```
+from models import Answer
+from sqlalchemy.orm import Session
+import sql_dbmodels
+
+def ask_question(answer: Answer, db: Session):
+    
+    sol_id = answer.id
+
+    solution = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.id == sol_id).first()
+
+    if solution.meaning == answer.meaning:
+        return 1
+    else:
+        return 0
+
+
+
+    return 0
+```
+- 解決策B　idをリストに入れて一挙検索して新リスト作成　（リストによる検索方法分からない）　　*イベント駆動のlambda版番はこの一挙検索が必須かも？
+
+
+
+
+### 設計・判断
+- 採点形式をfor文中に都度都度DB検索を行う方法で書いたが、いずれlambda版に変更することとDB検索数が多くなる問題からidリストで検索してその結果をリストに入れる方法に変更した
+- ↑の結果　元のリストを利用したcheck_and_counterとask_questionに戻した
+### 学んだこと
+### エラー・解決
+### 次回やること
