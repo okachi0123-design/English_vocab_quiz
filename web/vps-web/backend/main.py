@@ -12,6 +12,9 @@ from result import result
 from message import message
 from dotenv import load_dotenv
 import os
+from fastapi import Header
+from pass_auth import password_auth
+
 
 
 
@@ -22,25 +25,7 @@ app = FastAPI()
 
 sql_dbmodels.Base.metadata.create_all(bind=engine)
 
-
-#("/")は静的webでフロントエンドで挑戦するを押すとURLを("/pass")に切り替え
-
-@app.get("/pass") #挑戦するを押したあと
-def show_password_page():
-    pass
-
-@app.post("/pass") #パスワード認証
-def password_auth(entered_password :str):
-    password = os.getenv("PASSWORD")
-    if password == entered_password:
-        return RedirectResponse(
-        url="/quiz",
-        status_code=303
-        )
-    else:
-        return "Password is not correct"
-    
-
+  
 
 
 questions = [
@@ -49,6 +34,10 @@ questions = [
     Question(id=3, word="review", meaning="検討する、論評する"),
     Question(id=4, word="detail", meaning="詳細"),
 ]
+
+def check_password(enterd_password: str = Header()):
+    result_auth = password_auth(enterd_password)
+    return result_auth
 
 def get_db():
     db = SessionLocal()
@@ -74,49 +63,65 @@ init_db()
 
 
 @app.get("/quiz")
-def prepare_questions(attempt_count: int, db: Session = Depends(get_db)):
+def prepare_questions(attempt_count: int, db: Session = Depends(get_db), result_auth: int = Depends(check_password)):
+    if result_auth == 1:
+        questions = get_questions(attempt_count, db)#DBから単語取得
     
-    questions = get_questions(attempt_count, db)#DBから単語取得
-    
-    return questions
+        return questions
+    else:
+        return "パスワードが正しくありません"
 
 @app.post("/quiz")
-def check_and_counter(answers: list[Answer], db: Session = Depends(get_db)):
-    score = 0
-    attempt = 0
-    results = []
-    for answer in answers:
-        is_correct = ask_question(answer, db)
-        if is_correct == 1:  
-            results.append({
-                "result": "〇"
-            })
-        else:
-            sol_id = answer.id
-            solution = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.id == sol_id).first()
-            correct_answer = solution.meaning
-            results.append({
-                "result": "✕",
-                "answer": correct_answer
-            })
+def check_and_counter(answers: list[Answer], db: Session = Depends(get_db), result_auth: int = Depends(check_password)):
+    if result_auth == 1:
+        score = 0
+        attempt = 0
+        results = []
+    
+        answer_ids = []
+        for answer in answers:
+            answer_id = answer.id
+            answer_ids.append(answer_id)
+
+        solutions = db.query(sql_dbmodels.SQLQuestion.id, sql_dbmodels.SQLQuestion.meaning).filter(sql_dbmodels.SQLQuestion.id.in_(answer_ids)).all()
+
+
+        for answer in answers:
+            is_correct = ask_question(answer,solutions)
+            if is_correct == 1:  
+                results.append({
+                    "result": "〇"
+                })
+            else:
+                id = answer.id
+                for solution in solutions:
+                    if solution.id == id:
+                        correct_answer = solution.meaning
+                        results.append({
+                    "result": "✕",
+                    "answer": correct_answer
+                })
 
     
             
 
-        score = score + is_correct
-        attempt = attempt + 1
+            score = score + is_correct
+            attempt = attempt + 1
 
-        percentage = result(score, attempt)
-        percentage = round(percentage, 2)
+            percentage = result(score, attempt)
+            percentage = round(percentage, 2)
         
-        result_message = message(percentage)
+            result_message = message(percentage)
         
-    return{
-        "results": results,
-        "attempt": attempt,
-        "score": score,
-        "percentage": percentage,
-        "message": result_message
-    }
+        return{
+            "results": results,
+            "attempt": attempt,
+            "score": score,
+            "percentage": percentage,
+            "message": result_message
+        }
+
+    else:
+        return "パスワードが正しくありません"
     
 
