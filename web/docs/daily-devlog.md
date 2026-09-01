@@ -377,6 +377,8 @@ def ask_question(answer: Answer,questions):
 
 - 解決策A　ask側で毎回idからDB検索（自分だけで出来た）＋不正解時もcheck側で正答を再検索
 - check_and_counter
+- まず　正答検索用のid `sol_id`を指定
+- `sol_id`を使ってDBをフィルター検索し、意味を取りだす
 ```
 @app.post("/quiz")
 def check_and_counter(answers: list[Answer], db: Session = Depends(get_db)):
@@ -400,6 +402,9 @@ def check_and_counter(answers: list[Answer], db: Session = Depends(get_db)):
 ```
 
 - ask_question
+- まずDB検索用の`sol_id`を指定
+- ↑でフィルター検索
+- 同idのmeaning同士を比較させる
 ```
 from models import Answer
 from sqlalchemy.orm import Session
@@ -421,13 +426,114 @@ def ask_question(answer: Answer, db: Session):
     return 0
 ```
 - 解決策B　idをリストに入れて一挙検索して新リスト作成　（リストによる検索方法分からない）　　*イベント駆動のlambda版番はこの一挙検索が必須かも？
+- ＊解決策A適用前に戻し済
+- check_and_counter
+- まず`answers`リストのidだけを抜き出して、`answer_ids`リストに`append`
+- そのリストでDB検索
+`検索方法：　db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.id.in_(answer_ids)).all()　　と、== + first ではなく　in_(リスト) + all の形`
+- questionsリストを全てsolutionsに変換
+```
+@app.post("/quiz")
+def check_and_counter(answers: list[Answer], db: Session = Depends(get_db)):
+    score = 0
+    attempt = 0
+    results = []
+    
+    answer_ids = []
+    for answer in answers:
+        answer_id = answer.id
+        answer_ids.append(answer_id)
+
+    solutions = db.query(sql_dbmodels.SQLQuestion.id, sql_dbmodels.SQLQuestion.meaning).filter(sql_dbmodels.SQLQuestion.id.in_(answer_ids)).all()
+
+
+    for answer in answers:
+        is_correct = ask_question(answer,solutions)
+        if is_correct == 1:  
+            results.append({
+                "result": "〇"
+            })
+        else:
+            id = answer.id
+            for solution in solutions:
+                if solution.id == id:
+                    correct_answer = solution.meaning
+                    results.append({
+                "result": "✕",
+                "answer": correct_answer
+            })
+
+```
+- ask_questions
+- solutionsに変換
+```
+from models import Answer
+
+def ask_question(answer: Answer,solutions):
+    for solution in solutions:
+            if solution.id == answer.id:
+                if solution.meaning == answer.meaning:
+                    return 1
+                else:
+                    return 0
 
 
 
+    return 0
+```
+
+#### 認証設定
+- ("/pass")を廃止し、("/quiz")下の各Methodにパスワード認証を追加する
+- 各Methodの依存関係にパス認証の関数を入れ、その返り値をif比較することで認証する
+- パスワードの送信方法はHTTPのヘッダーで行う
+- `pass_auth.py`に`password_auth`関数を入れる
+- ↑の結果を変数に入れてmainに返す関数`check_password`を作る
+- `check_password`を各Methodの依存関係に入れる
+- pass_auth.py
+```
+from dotenv import load_dotenv
+import os
+
+def password_auth(entered_password :str):
+    password = os.getenv("PASSWORD")
+    if password == entered_password:
+        return 1
+    else: 
+        return 0
+```
+- check_password
+```
+def check_password(enterd_password: str = Header()):
+    result_auth = password_auth(enterd_password)
+    return result_auth
+```
+- 依存関係
+```
+result_auth: int = Depends(check_password)
+＋
+if result_auth == 1:
+.
+.
+.
+else:
+        return "パスワードが正しくありません"
+```
+- フロントエンド制作の簡単な計画
 
 ### 設計・判断
 - 採点形式をfor文中に都度都度DB検索を行う方法で書いたが、いずれlambda版に変更することとDB検索数が多くなる問題からidリストで検索してその結果をリストに入れる方法に変更した
 - ↑の結果　元のリストを利用したcheck_and_counterとask_questionに戻した
+
+- ("/pass")の廃止
+- 理由：/passだとその認証状態の維持に苦戦することに気づいた。
+- 解決策：("/quiz")の各Methodにパス認証を追加する
+
+- フロントエンド制作計画
+- codexメイン
+- HTML/CSSはほぼ書かない
+- API仕様を先に渡す
+- fetch() 部分は自分でも理解する
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
+- フロントエンド制作
