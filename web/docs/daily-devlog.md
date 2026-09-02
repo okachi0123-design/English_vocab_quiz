@@ -537,3 +537,33 @@ else:
 ### エラー・解決
 ### 次回やること
 - フロントエンド制作
+
+
+## 2026-09-02
+### 作業内容
+#### フロントエンド制作
+- UIの選択　`dribbble.com`でクイズのデザインを探す
+- 構成を考えてCodexに渡す
+- 完成しフロントエンドをチェック
+
+#### バックエンドとフロントエンドの接続
+##### CORSの設定
+- CORSのチェックをするミドルウェアを追加
+`app.add_middleware(
+    CORSMiddleware,`
+- フロントエンドからのリクエストを受け取れるように許可する
+`allow_origins=[
+    "http://localhost...",
+    "http://...",
+],`
+- 許可するmethodを設定する
+`allow_methods=["GET", "POST", "OPTIONS"]`
+- 許可するHTTPヘッダーを設定する
+`allow_headers=["Content-Type", "enterd-password"]`
+### 設計・判断
+- URL設計の変更　　バックエンド側のURLを("api/quiz")のようにapiをつけることでフロントエンドとのurlの衝突を防ぐ
+### 学んだこと
+### エラー・解決
+### 次回やること
+- バックエンドの整理
+- VPSデプロイ
