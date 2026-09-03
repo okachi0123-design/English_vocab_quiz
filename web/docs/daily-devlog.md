@@ -568,3 +568,25 @@ else:
 ### 次回やること
 - バックエンドの整理
 - VPSデプロイ
+
+
+##   2026-09-03
+### 作業内容
+#### バックエンドの整理
+##### 挑戦数の有効範囲設定
+- attempt_countをifで　1以上100未満でないと動かないようにした。
+```
+@app.get("/api/quiz")
+def prepare_questions(attempt_count: int, db: Session = Depends(get_db), result_auth: int = Depends(check_password)):
+if attempt_count >= 100: 
+        return "問題数が多すぎます"
+    elif attempt_count <= 0:
+        return "１つ以上を選択してください"
+    else: ....
+
+```
+- AIによるフロントエンドの調整　上下限を超えるリクエストに対するエラーメッセージの追加
+### 設計・判断
+### 学んだこと
+### エラー・解決
+### 次回やること
