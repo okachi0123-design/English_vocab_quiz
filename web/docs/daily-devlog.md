@@ -596,8 +596,23 @@ if attempt_count >= 100:
 ### 作業内容
 #### VPSデプロイ
 - VPSの`/English_vocab_quiz`内で`git pull`
+- Python仮想環境内にライブラリをインストール
+```
+pip freeze > requirements.txt　#ローカルで今使っているライブラリ表示
+
+pip install -r requirements.txt #導入側にrequirements.txtをPULLして、それを基にインストール
+```
+
 - PostgreSQLをVPS内に導入
 ```
+sudo apt update
+sudo apt install postgresql postgresql-contrib -y
+
+sudo -u postgres psql
+
+CREATE USER english_user WITH PASSWORD 'パスワード';
+
+CREATE DATABASE DB名 OWNER ユーザー名;
 ```
 ### 設計・判断
 ### 学んだこと
