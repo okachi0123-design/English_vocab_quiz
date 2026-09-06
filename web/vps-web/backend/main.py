@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 import os
 from fastapi import Header
 from pass_auth import password_auth
-
+from fastapi.middleware.cors import CORSMiddleware 
 
 
 
@@ -22,6 +22,16 @@ load_dotenv()
 
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "enterd-password"],
+)
 
 sql_dbmodels.Base.metadata.create_all(bind=engine)
 
@@ -62,16 +72,23 @@ init_db()
 
 
 
-@app.get("/quiz")
+@app.get("/api/quiz")
 def prepare_questions(attempt_count: int, db: Session = Depends(get_db), result_auth: int = Depends(check_password)):
-    if result_auth == 1:
-        questions = get_questions(attempt_count, db)#DBから単語取得
-    
-        return questions
+    if attempt_count >= 100: 
+        return "問題数が多すぎます"
+    elif attempt_count <= 0:
+        return "１つ以上を選択してください"
     else:
-        return "パスワードが正しくありません"
+        if result_auth == 1:
+            questions = get_questions(attempt_count, db)#DBから単語取得
+    
+            return questions
+        else:
+            return "パスワードが正しくありません"
+   
+   
 
-@app.post("/quiz")
+@app.post("/api/quiz")
 def check_and_counter(answers: list[Answer], db: Session = Depends(get_db), result_auth: int = Depends(check_password)):
     if result_auth == 1:
         score = 0
