@@ -610,11 +610,19 @@ sudo apt install postgresql postgresql-contrib -y
 
 sudo -u postgres psql
 
-CREATE USER english_user WITH PASSWORD 'パスワード';
+CREATE USER ユーザー名 WITH PASSWORD 'パスワード';
 
 CREATE DATABASE DB名 OWNER ユーザー名;
 ```
+
+- .envのURL設定  .env_example
+
+- `init_db()`実行でテーブル作成
+
 ### 設計・判断
+- テーブル作成(init_db)はpythonリストから全て１度に送信していたが、今後データ追加のために `PUT`を導入することに
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
+- PUTの作成
+- VPSデプロイ続き
