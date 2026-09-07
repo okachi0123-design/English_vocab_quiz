@@ -647,9 +647,35 @@ def replace_questions(new_data: Question ,db: Session = Depends(get_db)):
         return "データに異常があります"
 ```
 
-- 
+#### データ追記用POSTの追加
+- 現状の最大のID + 1でidを指定する設計から変更し、以下にした
+- `primary_key=True`を指定しているため自動でidを追記してくれることを利用した追記方法
+- idを含まないモデル `NewQuestion`を追加、import
+```
+class NewQuestion(BaseModel):
+    word: str
+    meaning: str
+```
+- init_dbの要領でデータ追加
+
+```
+@app.post("/api/data")
+def add_question(questions: list[NewQuestion], db: Session = Depends(get_db)):
+    
+    for question in questions:
+       db.add(sql_dbmodels.SQLQuestion(**question.model_dump()))
+    db.commit()
+```
+- ＊id認識のずれによるエラー発生
+
 ### 設計・判断
 ### 学んだこと
 ### エラー・解決
+- PostgreSQLの自動採番エラー
+- エラー文`sqlalchemy.exc.IntegrityError: (psycopg2.errors.UniqueViolation) duplicate key value violates unique constraint "eng_vocabulary_words_pkey"
+DETAIL:  Key (id)=(1) already exists.`
+- idを指定しないことで自動で`id = 1`として挿入しようとしたがすでに存在していたことでエラーが起きた
+- 原因:手動でidを入力したリストを`model_dump`したため、PostgreSQL内の自動採番ではまだidが無いものと認識していた
 ### 次回やること
+- PostgreSQLの自動採番エラーの解決
 
