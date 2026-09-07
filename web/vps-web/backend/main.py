@@ -1,5 +1,5 @@
 from fastapi import Depends,FastAPI 
-from models import Question, Answer
+from models import Question, Answer, NewQuestion
 from ask import ask_question
 from database_conf import engine, SessionLocal
 import sql_dbmodels
@@ -140,5 +140,29 @@ def check_and_counter(answers: list[Answer], db: Session = Depends(get_db), resu
 
     else:
         return "パスワードが正しくありません"
+
+
+@app.put("/api/data")
+def replace_questions(new_data: Question ,db: Session = Depends(get_db)):
+ 
+    old_data = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.id == new_data.id).first()
+    if old_data:
+        old_data.word = new_data.word
+        old_data.meaning = new_data.meaning
+        db.commit()
+        return "テーブルがアップデートされました"
+
+    else:
+        return "データに異常があります"
+
+
+@app.post("/api/data")
+def add_question(questions: list[NewQuestion], db: Session = Depends(get_db)):
+    
+    for question in questions:
+       db.add(sql_dbmodels.SQLQuestion(**question.model_dump()))
+    db.commit()
     
 
+    
+  

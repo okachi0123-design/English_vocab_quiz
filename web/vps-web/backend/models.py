@@ -9,3 +9,6 @@ class Answer(BaseModel):
     id: int
     meaning: str
 
+class NewQuestion(BaseModel):
+    word: str
+    meaning: str
