@@ -620,9 +620,36 @@ CREATE DATABASE DB名 OWNER ユーザー名;
 - `init_db()`実行でテーブル作成
 
 ### 設計・判断
-- テーブル作成(init_db)はpythonリストから全て１度に送信していたが、今後データ追加のために `PUT`を導入することに
+- テーブル作成(init_db)はpythonリストから全て１度に送信していたが、今後データ追加のために データ追加用のPOST、修正用のPUT、DELETEを導入することに
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
-- PUTの作成
+- データ追加用のPOST、修正用のPUT、DELETの作成
 - VPSデプロイ続き
+
+
+## 2026-09-07
+### 作業内容
+#### PUTの追加
+- `id``meaning``word`の組み合わせを与えて、その`id`からDBを検索し、置き換える仕組みに
+```
+@app.put("/api/quiz")
+def replace_questions(new_data: Question ,db: Session = Depends(get_db)):
+ 
+    old_data = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.id == new_data.id).first()
+    if old_data:
+        old_data.word = new_data.word
+        old_data.meaning = new_data.meaning
+        db.commit()
+        return "テーブルがアップデートされました"
+
+    else:
+        return "データに異常があります"
+```
+
+- 
+### 設計・判断
+### 学んだこと
+### エラー・解決
+### 次回やること
+
