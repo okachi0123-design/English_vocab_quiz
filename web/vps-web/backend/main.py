@@ -157,12 +157,45 @@ def replace_questions(new_data: Question ,db: Session = Depends(get_db)):
 
 
 @app.post("/api/data")
-def add_question(questions: list[NewQuestion], db: Session = Depends(get_db)):
+def add_question(new_questions: list[NewQuestion], db: Session = Depends(get_db)):
+    error_message = []
+    succes_message = []
+    for new_question in new_questions:
+
+        same_word = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.word == new_question.word).first()
+
+        if same_word:
+            error_message.append({
+                "word": same_word.word,
+                "message": "同一単語が存在します"
+            })
+            
+
+        else:
+            db.add(sql_dbmodels.SQLQuestion(**new_question.model_dump()))
+            db.commit()
     
-    for question in questions:
-       db.add(sql_dbmodels.SQLQuestion(**question.model_dump()))
-    db.commit()
+            success_message.append({
+                "word": new_question.word,
+                "message": "単語が追加されました"
+            })
+    return succes_message, error_message
+
+
+@app.delete("/api/data")
+def delete_question(delete_ids: list[int], db: Session = Depends(get_db)):
+    delete_items = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.id.in_(delete_ids)).all()
+    deleted_words = []
+    for delete_item in delete_items:
+        db.delete(delete_item)
+        db.commit()
+        deleted_words.append(delete_item.word)
+    if deleted_words:
+        return "以下の問題が削除されました",deleted_words
+    else:
+        return "データが削除されませんでした"
+    
     
 
-    
+
   
