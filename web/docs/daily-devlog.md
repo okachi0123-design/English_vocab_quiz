@@ -761,10 +761,9 @@ def delete_question(delete_ids: list[int], db: Session = Depends(get_db)):
         return "以下の問題が削除されました",deleted_words
     else:
         return "データが削除されませんでした"
-```
-#### VPSのPostgreSQLにデータの導入
-
+``` 
 ### 設計・判断
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
+- VPS内のPostgreSQLへのデータ導入
