@@ -679,3 +679,92 @@ DETAIL:  Key (id)=(1) already exists.`
 ### 次回やること
 - PostgreSQLの自動採番エラーの解決
 
+
+## 2026-09-08
+### 作業内容
+#### PostgreSQLの自動採番エラーの解決
+- `SELECT MAX(id) FROM eng_vocabulary_words;`で表示される最大IDが正しいか確認
+- 正しければ↓で`PostgreSQL`に最大IDを認識させる
+```
+SELECT setval(
+    pg_get_serial_sequence('eng_vocabulary_words', 'id'),
+    (SELECT MAX(id) FROM eng_vocabulary_words)
+);
+```
+- データ追加をテスト
+
+#### データ追記用POSTの改善
+- 同一単語の追加を防ぐために一度英単語で条件検索をかける仕組みを追加
+```
+for new_question in new_questions:
+
+        same_word = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.word == new_question.word).first()
+
+        if same_word:
+        else: #データ追加実行
+  ```
+- エラーメッセージの追加
+```
+ error_message = []
+.
+.
+.
+ if same_word:
+            error_message.append({same_word.word, "同一単語が存在します"})
+```
+- 同様に成功メッセージの追加
+```
+succes_message = []
+.
+.
+.
+else:
+            db.add(sql_dbmodels.SQLQuestion(**new_question.model_dump()))
+            db.commit()
+            succes_message.append({new_question.word, "単語が追加されました"})
+```
+- メッセージのset送信によって英単語と結果文の順番がずれるエラーの発生
+- メッセージと単語の組み合わせを辞書に変更
+```
+error_message.append({
+                "word": same_word.word,
+                "message": "同一単語が存在します"
+            })
+```
+
+#### DELETEの追加
+- IDで検索し１つづつ削除する形式
+```
+@app.delete("/api/data")
+def delete_question(delete_id: int, db: Session = Depends(get_db)):
+    delete_item = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.id == delete_id).first()
+    if delete_id:
+        db.delete(delete_item)
+        db.commit()
+        return "該当問題が削除されました"
+    else:
+        return "IDが見つかりませんでした"
+```
+
+- check_and_counterの要領を使い、まとめてリストで検索、forで削除に変更
+```
+@app.delete("/api/data")
+def delete_question(delete_ids: list[int], db: Session = Depends(get_db)):
+    delete_items = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.id.in_(delete_ids)).all()
+    deleted_words = []
+    for delete_item in delete_items:
+        db.delete(delete_item)
+        db.commit()
+        deleted_words.append(delete_item.word)
+
+    if deleted_words:
+        return "以下の問題が削除されました",deleted_words
+    else:
+        return "データが削除されませんでした"
+```
+#### VPSのPostgreSQLにデータの導入
+
+### 設計・判断
+### 学んだこと
+### エラー・解決
+### 次回やること
