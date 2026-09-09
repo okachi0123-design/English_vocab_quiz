@@ -39,10 +39,10 @@ sql_dbmodels.Base.metadata.create_all(bind=engine)
 
 
 questions = [
-    Question(id=1, word="implement", meaning="実行する、導入する"),
-    Question(id=2, word="department", meaning="部門、売り場"),
-    Question(id=3, word="review", meaning="検討する、論評する"),
-    Question(id=4, word="detail", meaning="詳細"),
+    NewQuestion(word="implement", meaning="実行する、導入する"),
+    NewQuestion(word="department", meaning="部門、売り場"),
+    NewQuestion(word="review", meaning="検討する、論評する"),
+    NewQuestion(word="detail", meaning="詳細"),
 ]
 
 def check_password(enterd_password: str = Header()):
