@@ -797,3 +797,4 @@ def delete_question(delete_ids: list[int], db: Session = Depends(get_db)):
 
 
 ### 次回やること
+- ポート開放
