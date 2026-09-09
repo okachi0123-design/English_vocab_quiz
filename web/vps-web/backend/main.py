@@ -159,7 +159,7 @@ def replace_questions(new_data: Question ,db: Session = Depends(get_db)):
 @app.post("/api/data")
 def add_question(new_questions: list[NewQuestion], db: Session = Depends(get_db)):
     error_message = []
-    succes_message = []
+    success_message = []
     for new_question in new_questions:
 
         same_word = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.word == new_question.word).first()
@@ -179,7 +179,7 @@ def add_question(new_questions: list[NewQuestion], db: Session = Depends(get_db)
                 "word": new_question.word,
                 "message": "単語が追加されました"
             })
-    return succes_message, error_message
+    return success_message, error_message
 
 
 @app.delete("/api/data")
