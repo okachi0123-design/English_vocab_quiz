@@ -767,3 +767,33 @@ def delete_question(delete_ids: list[int], db: Session = Depends(get_db)):
 ### エラー・解決
 ### 次回やること
 - VPS内のPostgreSQLへのデータ導入
+
+## 2026-09-09
+### 作業内容
+#### VPS内のPostgreSQLへのデータ導入
+##### VPSをLocalHostとするWEBサーバー起動、接続
+- VPS上のローカルホストでWEBサーバーを起動し、SSHポートフォワーディングを利用してFastAPI実行環境を用意する
+- Powershell内でsshキーペアを用意し、VPSに登録
+- `ssh -i 秘密鍵 -L 8000:127.0.0.1:8000 ユーザー名@IPアドレス`　でVPCのローカルホストにSSHトンネルを開く
+- http://localhost:8000/docsで  FastAPIのテスト環境を開きDBを操作する
+
+##### DBの操作
+###### init_db()による自動採番エラーの予測と対策
+- Webサーバー起動時に`init_db()`が動き、リストからテーブルを用意するが、そのリストはidが振られているため、そのidと新規追加用の自動採番idのずれが起きる
+- 今回は`DELETE`で消した後に`add_question`でidなしのデータをもう一度追加した
+- 次回以降の対策として`init_db()`が扱うリストをid無しにして最初から自動採番を利用する形式に変更した　（テスト済み）
+###### テーブルへのデータ追加
+- 新たな`init_db`でテーブルを作り、残りのデータを`add_question`で挿入したが、スペルミスによる`add_question`のエラーが起きた
+- もう一度DELETEで削除し、修正後追加したがすでに自動採番で5まで割り振りされており、テーブルを削除した
+- すべての修正を終え、テーブルにデータを挿入した
+### 設計・判断
+### 学んだこと
+### エラー・解決
+#### 自動採番後のDELETEによってidが利用済になったエラー
+- 詳細：新たな`init_db`でテーブルを作り、残りのデータを`add_question`で挿入したが、スペルミスによる`add_question`のエラーが起きた。もう一度DELETEで削除し、修正後追加したがすでに自動採番で5まで割り振りされていた
+- 解決：テーブルを削除した
+- `sudo -u postgres psql -d DB名` でpostgreユーザーとしてアクセス
+- `TRUNCATE TABLE eng_vocabulary_words RESTART IDENTITY;`でテーブルデータの削除
+
+
+### 次回やること
