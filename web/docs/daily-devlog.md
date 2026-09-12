@@ -798,3 +798,12 @@ def delete_question(delete_ids: list[int], db: Session = Depends(get_db)):
 
 ### 次回やること
 - ポート開放
+
+## 2026-09-12
+### 作業内容
+#### Nginxの導入
+
+### 設計・判断
+### 学んだこと
+### エラー・解決
+### 次回やること
