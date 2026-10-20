@@ -864,8 +864,9 @@ def delete_question(delete_ids: list[int], db: Session = Depends(get_db)):
 - Reactとの接続
 - 動作確認後　API接続先URLを戻す
 
-#### フロントエンドのVPS移植　
-- 
+#### systemd設定とnginx導入
+- systemd設定の意味：アプリのクラッシュ時の再起動など アプリが常時稼働できるようにする
+- FastAPI（Uvicorn）、PostgreSQL、Nginxの各サービスの起動や監視をSSH接続をして手動で行わなくてもよい状態にする
 ### 設計・判断
 ### 学んだこと
 ### エラー・解決
