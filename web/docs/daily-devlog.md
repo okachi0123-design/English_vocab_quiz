@@ -894,7 +894,7 @@ def delete_question(delete_ids: list[int], db: Session = Depends(get_db)):
 ##### Install
 - WantedBy=multi-user.target　マルチユーザーターゲットでのLinux起動時に同時に起動（復旧の時には起動しない）
 
-#### 環境構築
+#### アプリファイル環境構築
 - アプリ用ユーザーの追加　` sudo useradd --system -M -s /usr/sbin/nologin -U webquiz`
 - dirの作成 ` sudo mkdir /opt/dirname` ＊先に入れ物を作る
 - アプリの移動 ＊sudo + no-group no-permsで所有者が引き継がれず、rootになる。excludeで不要ファイルを除外
@@ -910,16 +910,31 @@ sudo rsync -av \
 ```
 - アプリ権限の変更　グループを専用ユーザーのグループにして権限の設定
 - ディレクトリの設定　
-`sudo chown root:<app-group> /opt/<app-name>
-sudo chmod 750 /opt/<app-name>`
+`sudo chown root:<app-group> /opt/webquiz
+sudo chmod 750 /opt/webquiz`
 ```
 ファイルの設定：（失敗）
-sudo chown root:<app-group> /opt/<app-name>/*.py
-sudo chmod 640 /opt/<app-name>/*.py'
+sudo chown root:<app-group> /opt/webquiz/*.py
+sudo chmod 640 /opt/webquiz/*.py'
 
 理由：権限を750にしたことで、メインユーザーが`/opt/webquiz`から`*.py`を展開できなくなったから
 対処：
-sudo bash -c 'chown root:<app-group> /opt/<app-name>/*.py && chmod 640 /opt/<app-name>/*.py'
+sudo bash -c 'chown root:<app-group> /opt/webquiz/*.py && chmod 640 /opt/webquiz/*.py'
+```
+#### 実行環境内にPython仮想環境構築
+- `sudo python3 -m venv /opt/webquiz/.venv` で`.venv`を作成
+- アプリのVPS移行時の`requirements.txt`を流用して`.venv`にpythonライブラリをインストール
+`sudo /opt/webquiz/.venv/bin/python3 -m pip install -r /opt/webquiz/requirements.txt`
+- 依存関係のcheck
+`sudo -u webquiz /opt/webquiz/.venv/bin/python3 -m pip check`
+
+#### .envファイルの移行
+- `.env`を`/opt/webquiz`にコピー
+`sudo cp .env /opt/webquiz/.env`
+- 所有者、権限がスライドされるので所有者、権限の変更
+```
+sudo chown root:<app-group> /opt/webquiz/.env
+sudo chmod 640 /opt/webquiz/.env
 ```
 ### 設計・判断
 ### 学んだこと
