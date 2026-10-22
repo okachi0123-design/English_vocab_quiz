@@ -865,9 +865,64 @@ def delete_question(delete_ids: list[int], db: Session = Depends(get_db)):
 - 動作確認後　API接続先URLを戻す
 
 #### systemd設定とnginx導入
+##### systemd
 - systemd設定の意味：アプリのクラッシュ時の再起動など アプリが常時稼働できるようにする
 - FastAPI（Uvicorn）、PostgreSQL、Nginxの各サービスの起動や監視をSSH接続をして手動で行わなくてもよい状態にする
+- ディレクティブで状況に応じた行動を決める　異常終了時の再起動など
+- 詳しくは`Linux-Learning-Notes/Process-Management/systemd/service-files.md`
 ### 設計・判断
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
+- systemd設計
+
+## 2026-10-22
+### 作業内容
+#### systemd設計
+##### Unit
+- Description: Description=FastAPI English Quiz Application
+- Before/After: After=network.target postgresql.service　ネットワーク、postgre起動後に起動
+- Reqires/Wants: Wants=postgresql.service
+##### Service
+- User=webquiz
+- Group=webquiz
+- WorkingDirectory=（CLI版と同じように`/opt`配下などで書きこみ出来ないようにする）
+- ExecStart=(同じく`/opt`配下に.venvを置き、python3コマンドでuvicorn) 
+- Restart=on-failure　異常時に再起動
+- RestartSec=5
+- NoNewPrivileges=yes　プロセスの権限取得を制限
+##### Install
+- WantedBy=multi-user.target　マルチユーザーターゲットでのLinux起動時に同時に起動（復旧の時には起動しない）
+
+#### 環境構築
+- アプリ用ユーザーの追加　` sudo useradd --system -M -s /usr/sbin/nologin -U webquiz`
+- dirの作成 ` sudo mkdir /opt/dirname` ＊先に入れ物を作る
+- アプリの移動 ＊sudo + no-group no-permsで所有者が引き継がれず、rootになる。excludeで不要ファイルを除外
+```
+sudo rsync -av \
+  --no-owner --no-group --no-perms \
+  --exclude='venv/' \
+  --exclude='.venv/' \
+  --exclude='.env' \
+  --exclude='__pycache__/' \
+  ~/project/backend/ \
+  /opt/app-name/
+```
+- アプリ権限の変更　グループを専用ユーザーのグループにして権限の設定
+- ディレクトリの設定　
+`sudo chown root:<app-group> /opt/<app-name>
+sudo chmod 750 /opt/<app-name>`
+```
+ファイルの設定：（失敗）
+sudo chown root:<app-group> /opt/<app-name>/*.py
+sudo chmod 640 /opt/<app-name>/*.py'
+
+理由：権限を750にしたことで、メインユーザーが`/opt/webquiz`から`*.py`を展開できなくなったから
+対処：
+sudo bash -c 'chown root:<app-group> /opt/<app-name>/*.py && chmod 640 /opt/<app-name>/*.py'
+```
+### 設計・判断
+### 学んだこと
+### エラー・解決
+### 次回やること
+- /opt配下のアプリに.venv環境を構築、.envの移行
