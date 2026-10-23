@@ -974,7 +974,11 @@ sudo systemctl is-enabled webquiz
 ## 2026-10-23
 ### 作業内容
 #### APIの確認
-- 
+- SSHポートフォワーディングで確認
+#### Nginx導入
+- インストール　`sudo apt install nginx`
+- statusチェック`sudo systemctl status nginx --no-pager`
+- 応答確認　`curl -I http://127.0.0.1`
 ### 設計・判断
 ### 学んだこと
 ### エラー・解決
