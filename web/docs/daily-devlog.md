@@ -936,8 +936,46 @@ sudo bash -c 'chown root:<app-group> /opt/webquiz/*.py && chmod 640 /opt/webquiz
 sudo chown root:<app-group> /opt/webquiz/.env
 sudo chmod 640 /opt/webquiz/.env
 ```
+
+#### servicefile完成
+- pathが決まったので残りを完成させる
+```
+WorkingDirectory=/opt/webquiz
+ExecStart=/opt/webquiz/.venv/bin/python3 -m uvicorn main:app --host 127.0.0.1 --port 8000 --workers 1
+```
+
+- ファイルの構文をチェックする
+`sudo systemd-analyze verify /etc/systemd/system/webquiz.service`
+
+- systemdに設定を読み込ませる
+`sudo systemctl daemon-reload`
+
+- サービスを起動、確認する
+```bash
+sudo systemctl start webquiz
+sudo systemctl status webquiz
+```
+
+- enableにする
+`sudo systemctl enable webquiz`
+
+- activeかenableか確認する
+```
+sudo systemctl is-active webquiz
+sudo systemctl is-enabled webquiz
+```
+
 ### 設計・判断
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
-- /opt配下のアプリに.venv環境を構築、.envの移行
+- systemdによるAPIの動作確認、Nginxの導入・設定
+
+## 2026-10-23
+### 作業内容
+#### APIの確認
+- 
+### 設計・判断
+### 学んだこと
+### エラー・解決
+### 次回やること
