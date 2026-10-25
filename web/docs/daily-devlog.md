@@ -1002,8 +1002,38 @@ sudo systemctl is-enabled webquiz
 
 ## 2026-10-25
 ### 作業内容
+#### nginx導入法決定
+- HTTPで外部公開せずにリバースプロキシの設定、テスト
+- SSL/TLS証明書を取得、設定してHTTPSにして公開の計画
 #### nginxファイル設定
-- 
+##### サーバーブロックの設計
+- 80番ポートでipv4/v6を待ち受ける
+```
+server {
+        listen 80;
+        listen [::]:80;
+        sever_name  domain名.duckdns.org;
+}
+```
+
+##### location設定
+- locationは`/api/`以下にFastAPIのエンドポイントを定義してあるので、`/api/`の時にはリバースプロキシでVPSのFastAPIに転送し、それ以外は静的コンテンツを見せるように設定
+- 静的コンテンツの置き場の指定は、`root``alias`があるが、送るコンテンツは１種類で置き場を分ける必要が無いので`root`を使用する 
+- timeoutはデフォルトの60sで十分
+- 静的コンテンツの設定で最初のホーム画面から `/quiz`画面に移行する操作に対応できるうように設定する必要がある。
+```
+location /api {
+        proxy_pass http://127.0.0.1:8000;
+}
+
+location / {
+        root /var/www/webquiz;
+}
+```
+
+##### その他設定
+- client_max_body_sizeはデフォルトの1MBにする
+
 ### 設計・判断
 ### 学んだこと
 ### エラー・解決
