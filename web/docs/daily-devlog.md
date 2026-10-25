@@ -1033,7 +1033,21 @@ location / {
 
 ##### その他設定
 - client_max_body_sizeはデフォルトの1MBにする
-
+#### Nginx導入
+- - 設定ファイルの有効化 `sudo ln -s /etc/nginx/sites-available/webquiz /etc/nginx/sites-enabled/webquiz`
+- 構文チェック　`sudo nginx -t`
+- 成功まで修正
+- 起動`sudo systemctl start nginx`
+- チェック `sudo systemctl status nginx --no-pager`
+- active,enabled確認
+- curlによる起動確認
+```
+read -rsp "Password: " $QUIZ_PASSWORD　#見えないようにパスワードを変数に
+curl -i \
+  -H "Host: ドメイン名.duckdns.org" \
+  -H "enterd-password: QUIZ_PASSWORD" \
+  "http://127.0.0.1/api/quiz?attempt_count=2"
+```
 ### 設計・判断
 ### 学んだこと
 ### エラー・解決
