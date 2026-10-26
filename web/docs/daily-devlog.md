@@ -1061,7 +1061,27 @@ curl -i \
 - ローカルで`build`した静的コンテンツをVPS上にコピーする
 - VPS上での変更や開発を行わないため
 ##### 移行作業
-
+- 本番用の環境変数を用意する
+- Viteが読み込む、ReactのAPI接続先のURLを変更する
+- 本番環境用`.env.production`を作る
+`VITE_API_BASE_URL=/api` ＊Nginxでフロントエンドとバックエンド両方を扱っているから、ドメインを含めたURLではなく、そのドメインに続くパスだけを指定すればいい
+- 変更後の本番環境で`npm run build`で静的コンテンツを作る
+- 作ったファイルがある`dist/`をVPSに移行する` scp -i 鍵 -r dist ユーザー@VPSのIP:保存先`
+- `dist`の中身をNginx設定ファイルで指定した`/var/www/webquiz`以下にコピーする
+`sudo cp -r dist/* /var/www/webquiz/`
+#### nginxファイル設定変更
+- フロントエンドのReactが正しく動くように設定を変更
+- Reactの画面遷移は、`dist/index.html`を共通の入り口として`dist/assets/`内のJavaScriptを読み込み、React RouterがURLのパスに応じた画面を表示するという仕組み
+- この画面遷移を利用して、「挑戦する」を選択したら`/quiz`にURLが移動、画面の切り替えという仕組みを使っていた
+- 普通、この`/quiz`への移行時にはNginxにリクエストが送られないが、直接アクセスしたりページの更新をするとリクエストが送られる
+- そうなるとNginxは`/quiz`に対応するもの探して、見つけられずにエラーが起きる
+- だから、設定ファイルに存在しないリクエストが来た時に絶対に`index.html`を返すようにすることでフロントエンドが表示されるようにする
+```
+    location / {
+            root /var/www/webquiz;
+            try_files $uri $uri/ /index.html; #追加
+    }
+```
 ### 設計・判断
 ### 学んだこと
 ### エラー・解決
