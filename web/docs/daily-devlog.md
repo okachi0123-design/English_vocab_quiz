@@ -1044,7 +1044,7 @@ location / {
 ```
 read -rsp "Password: " $QUIZ_PASSWORD　#見えないようにパスワードを変数に
 curl -i \
-  -H "Host: ドメイン名.duckdns.org" \
+  -H "Host: my-webquiz.duckdns.org" \
   -H "enterd-password: QUIZ_PASSWORD" \
   "http://127.0.0.1/api/quiz?attempt_count=2"
 ```
@@ -1082,6 +1082,33 @@ curl -i \
             try_files $uri $uri/ /index.html; #追加
     }
 ```
+- rootの位置の変更　rootとindexをサーバーブロックに記入　
+```
+  root /var/www/webquiz;
+  index index.html;　#追加　rootのディレクトリにアクセスしたときのデフォルトのファイルを指定
+```
+- 構文確認と設定反映
+```
+sudo nginx -t
+sudo systemctl  start nginx ＊停止していた
+```
+#### フロントエンドのチェック
+- curlでレスポンスチェック
+`curl -I -H "Host: my-webquiz.duckdns.org" http://127.0.0.1/`
+`curl -I -H "Host: my-webquiz.duckdns.org" http://127.0.0.1/quiz`
+- SSHポートフォワーディングで接続し、Webサイトで確認
+`ssh -i key -N -L 127.0.0.1:8000:127.0.0.1:80 user@ip`
+- 「Welcome to nginx!」が表示される　デフォルト状態
+- Nginxの`server_name`が外部Web用のドメイン名だけだったので、localhostをホスト名とするリクエストがserverブロックに一致せず、Nginxのデフォルトサイトが選択された
+- Nginxの`server_name`にlocalhostを追加
+`server_name  my-webquiz.duckdns.org localhost;`
+- 構文チェック後、サービスをリロード
+- 再度127.0.0.1:8000を開きチェック
+- 接続成功
+- 「挑戦する」を選択したときの画面遷移、`/quiz`への移行　成功
+- `/``/quiz``/その他`でURLを入力し、  `/quiz`の時以外は挑戦画面が表示　URLによる直接アクセス、SPA成功
+- アプリ実行　成功
+  
 ### 設計・判断
 ### 学んだこと
 ### エラー・解決
