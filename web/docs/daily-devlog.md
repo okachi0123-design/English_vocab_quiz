@@ -1110,8 +1110,25 @@ sudo systemctl  start nginx ＊停止していた
 - アプリ実行　成功
 #### パッケージの刷新、脆弱性対策
 - Node.jsの脆弱性の記事をきっかけに、開発環境全体のパッケージの脆弱性やバージョンを確認することにした
+- Node.jsの脆弱性の記事をきっかけに、開発環境全体のパッケージの脆弱性やバージョンを確認することにした
+```
+node -vでバージョンを確認 → v18.19.1でサポート終了済みと判明
+nvm（Node Version Manager）を導入し、Node.jsを管理できるようにした
+nvm install nodeで最新版のNode.js v26.12.1をインストール
+nvm alias default 26.12.1でデフォルトのバージョンに設定
+npm run buildでReactアプリが正常にビルドできることを確認
+npm auditで依存パッケージの脆弱性を調査
+npm audit fixでViteなどの脆弱性を修正
+残ったReact Routerの脆弱性はCodexを使用して7.18.4に更新
+最終的にnpm auditで脆弱性0件、npm run buildの成功を確認
+```
+- 他の脆弱性についてはcodexから調査をし、以下の脆弱性が見つかった
+- FastAPIの管理APIに認証・認可が無い
+- pip 24.0に複数の脆弱性
+- APIの入力制限がない
 
 ### 設計・判断
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
+- 脆弱性対処
