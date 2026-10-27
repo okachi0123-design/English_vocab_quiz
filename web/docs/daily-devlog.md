@@ -1132,3 +1132,19 @@ npm audit fixでViteなどの脆弱性を修正
 ### エラー・解決
 ### 次回やること
 - 脆弱性対処
+
+## 2026-10-27
+### 作業内容
+#### 脆弱性対応
+##### API認証
+- 実際に攻撃してみる
+` curl -X PUT -d {"id":53,"word":"tangerine","meaning":"タンジェリン"} -H "Host: my-webquiz.duck
+dns.org" http://127.0.0.1/api/data` JSON形式指定間違いにより失敗
+`murabito@ik1-429-46835:~$ curl -X PUT -H "Content-Type: application/json" -d '{"id":53,"word":"tangerine","meaning":"タンジェリン"}' -H "Host: my-webquiz.duckdns.org" http://127.0.0.1/api/data` Content-Typeの指定し、データ部を''で囲っていないことによって{}を展開し、URLと勘違いした問題を解消した。
+- フロントエンドに入口が無くても`curl`などでAPIを直接送れば操作できることが分かった
+- APIキー認証の導入
+- 
+### 設計・判断
+### 学んだこと
+### エラー・解決
+### 次回やること
