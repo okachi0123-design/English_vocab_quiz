@@ -15,8 +15,8 @@ import os
 from fastapi import Header
 from pass_auth import password_auth
 from fastapi.middleware.cors import CORSMiddleware 
-
-
+from fastapi.security import APIKeyHeader
+from data_change_auth import dcpassword_auth
 
 load_dotenv()
 
@@ -29,9 +29,25 @@ app.add_middleware(
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ],
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type", "enterd-password"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "enterd-password", "data-change-key"],
 )
+
+
+
+header_scheme = APIKeyHeader(
+    name="data-change-key",
+    description="APIkey required to PUT,ADD or DELETE data",
+    auto_error=True
+    )
+
+
+
+def authorize_data_change(key: str = Depends(header_scheme)):
+    result_data_auth = dcpassword_auth(key)
+    return result_data_auth
+
+
 
 sql_dbmodels.Base.metadata.create_all(bind=engine)
 
@@ -143,57 +159,68 @@ def check_and_counter(answers: list[Answer], db: Session = Depends(get_db), resu
 
 
 @app.put("/api/data")
-def replace_questions(new_data: Question ,db: Session = Depends(get_db)):
- 
-    old_data = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.id == new_data.id).first()
-    if old_data:
-        old_data.word = new_data.word
-        old_data.meaning = new_data.meaning
-        db.commit()
-        return "テーブルがアップデートされました"
+def replace_questions(new_data: Question ,db: Session = Depends(get_db), result_data_auth: int = Depends(authorize_data_change)):
+    if result_data_auth == 1:
+        old_data = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.id == new_data.id).first()
+        if old_data:
+            old_data.word = new_data.word
+            old_data.meaning = new_data.meaning
+            db.commit()
+            return "テーブルがアップデートされました"
+
+        else:
+            return "データに異常があります"
 
     else:
-        return "データに異常があります"
+        return "パスワードが正しくありません"
 
 
 @app.post("/api/data")
-def add_question(new_questions: list[NewQuestion], db: Session = Depends(get_db)):
-    error_message = []
-    success_message = []
-    for new_question in new_questions:
+def add_question(new_questions: list[NewQuestion], db: Session = Depends(get_db), result_data_auth: int = Depends(authorize_data_change)):
+    if result_data_auth == 1:
+        error_message = []
+        success_message = []
+        for new_question in new_questions:
 
-        same_word = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.word == new_question.word).first()
+            same_word = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.word == new_question.word).first()
 
-        if same_word:
-            error_message.append({
-                "word": same_word.word,
-                "message": "同一単語が存在します"
-            })
-            
+            if same_word:
+                error_message.append({
+                    "word": same_word.word,
+                    "message": "同一単語が存在します"
+                })
 
-        else:
-            db.add(sql_dbmodels.SQLQuestion(**new_question.model_dump()))
-            db.commit()
-    
-            success_message.append({
-                "word": new_question.word,
-                "message": "単語が追加されました"
-            })
-    return success_message, error_message
+
+            else:
+                db.add(sql_dbmodels.SQLQuestion(**new_question.model_dump()))
+                db.commit()
+
+                success_message.append({
+                    "word": new_question.word,
+                    "message": "単語が追加されました"
+                })
+        return success_message, error_message
+
+    else:
+        return "パスワードが正しくありません"
 
 
 @app.delete("/api/data")
-def delete_question(delete_ids: list[int], db: Session = Depends(get_db)):
-    delete_items = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.id.in_(delete_ids)).all()
-    deleted_words = []
-    for delete_item in delete_items:
-        db.delete(delete_item)
-        db.commit()
-        deleted_words.append(delete_item.word)
-    if deleted_words:
-        return "以下の問題が削除されました",deleted_words
+def delete_question(delete_ids: list[int], db: Session = Depends(get_db), result_data_auth: int = Depends(authorize_data_change)):
+    if result_data_auth == 1:
+        delete_items = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.id.in_(delete_ids)).all()
+        deleted_words = []
+        for delete_item in delete_items:
+            db.delete(delete_item)
+            db.commit()
+            deleted_words.append(delete_item.word)
+        if deleted_words:
+            return "以下の問題が削除されました",deleted_words
+        else:
+            return "データが削除されませんでした"
+
     else:
-        return "データが削除されませんでした"
+        return "パスワードが正しくありません"
     
     
 
