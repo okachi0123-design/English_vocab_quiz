@@ -1143,7 +1143,49 @@ dns.org" http://127.0.0.1/api/data` JSON形式指定間違いにより失敗
 `murabito@ik1-429-46835:~$ curl -X PUT -H "Content-Type: application/json" -d '{"id":53,"word":"tangerine","meaning":"タンジェリン"}' -H "Host: my-webquiz.duckdns.org" http://127.0.0.1/api/data` Content-Typeの指定し、データ部を''で囲っていないことによって{}を展開し、URLと勘違いした問題を解消した。
 - フロントエンドに入口が無くても`curl`などでAPIを直接送れば操作できることが分かった
 - APIキー認証の導入
-- 
+- fastapi.securityのAPIKeyHeaderと挑戦者用と同様のAPI認証を組合わせた形式
+```
+from fastapi.security import APIKeyHeader
+
+header_scheme = APIKeyHeader(
+    name="data-change-key",
+    description="API key required to add, update, or delete data",
+    auto_error=True
+)
+```
+- key: str = Depends(header_scheme)の依存関係でHTTPヘッダーからAPIキーを取得し、正しいキーと照合する関数`def authorize_data_change`、.envにデータ変更用の環境変数、データ変更用のヘッダーと環境変数の認証関数が入ったファイル`from data_change_auth import dcpassword_auth`を用意する
+- 各関数に適用する
+- FastAPIのdocsで確認する→Authorizeの項目が追加される
+- .env_exampleに`API_PASSWORD =`を追加
+
+##### pipの脆弱性検証
+- Ubuntuの`apt policy`によってpipのver.24.0が標準とされていた。それを利用していたから仮想環境のpipも24.0だった
+- 古いバージョンでも、Ubuntu側でセキュリティ修正を適用する（バックポート）場合がある。
+- Pythonの仮想環境（`.venv`）は、作成時にUbuntuが提供するpipを利用することがある。
+- 既存の仮想環境内のpipは、OS側のパッケージ更新によって自動更新されるわけではない上に、仮想環境内のpipはOS側と独立して更新できるため、最新版にする
+
+`.venv/bin/python -m pip install --upgrade pip`
+
+- 依存関係を確認
+`.venv/bin/python -m pip check`
+- pip-auditをインストール
+`.venv/bin/python -m pip install pip-audit`
+- pip-auditで脆弱性を検出
+`.venv/bin/python -m pip_audit`
+- 見つからなかった
+- /docsで動くかチェック
+
+##### 脆弱性対応のVPS適用
+- `/dist`の再移行 scp→diff→cp
+- gitを経由したバックエンド変更の適用
+```
+pull→　　”main.py、data_change_auth.py”を/opt配下にコピー
+.envの変更
+systendサービスの再起動
+```
+- pipのアップデート　/opt配下
+- SSHポートフォワーディングでチェック
+
 ### 設計・判断
 ### 学んだこと
 ### エラー・解決
