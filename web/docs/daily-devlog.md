@@ -1184,10 +1184,52 @@ pull→　　”main.py、data_change_auth.py”を/opt配下にコピー
 systendサービスの再起動
 ```
 - pipのアップデート　/opt配下
-- SSHポートフォワーディングでチェック
+- SSHポートフォワーディングでチェック　
 
 ### 設計・判断
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
-- SSL/TLS証明書取得　
+- SSL/TLS証明書取得
+
+## 2026-10-28
+### 作業内容
+#### 昨日の残り
+- FastAPIの認証をＶＰＳ上でチェックするのを忘れていた
+- ＳＳＨポートフォワーディングを8000番に繋げて  /docsで確認
+
+#### HTTPS化
+-  CertbotでLet's Encryptから継続的に証明書を取得できるようにする
+##### Certbot導入
+- snapのインストール（パッケージ管理システム）　`sudo apt install snapd -y`
+- snapアプリの実行用の環境`core`をインストール`sudo snap install core`
+- coreを最新版に更新`sudo snap refresh core`
+- certbotのインストール`sudo snap install --classic certbot`
+- シンボリックリンクを`/usr/bin`に対応付けて環境変数PATHから使いやすくする`sudo ln -s /snap/bin/certbot /usr/bin/certbot`
+##### SSL/TLS証明書の発行
+- DNSが作動しているか確認 `dig my-webquiz.duckdns.org +short`　自分のIPアドレスが出たらOK
+- 80番ポートの解放`sudo ufw allow 80/tcp`
+- さくらVPS側のマネジメントコンソールからパケットフィルターで80,443番の解放
+- SSL/TLS証明書の発行`sudo certbot --nginx -d my-webquiz.duckdns.org`
+`/etc/letsencrypt/live/my-webquiz.duckdns.org/`に秘密鍵と証明書が保存
+##### HTTPS化チェック
+- 更新できるかチェック`sudo certbot renew --dry-run`
+- 自動更新タイマーが稼動しているかチェック`systemctl list-timers |grep certbot`
+- Webサイトにhttpsでアクセス
+- Webサイトの`/や/quiz,/その他`にhttpでアクセスし、全てhttpsにリダイレクトされているかチェック
+
+#### 最後の修正
+- HTTPSへのリダイレクト設定の置き場`# Redirect HTTP to HTTPS`をあらかじめ作っていたがCertbotが自動で作ってくれたので、そこに合うように位置を変更した
+
+#### Webサイト動作確認
+- `https://my-webquiz.duckdns.org/`にアクセスし、画面遷移確認
+- `https://my-webquiz.duckdns.org/quiz`に直接アクセスして確認
+- 
+
+### 設計・判断
+### 学んだこと
+### エラー・解決
+- SSHポートフォワーディング停止後もクイズ画面が表示される
+原因：ブラウザに読み込み済みのReact画面が残っていた
+解決：Ctrl + Shift + Rで強制再読み込みし、接続状態を確認
+### 次回やること
