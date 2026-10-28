@@ -111,3 +111,15 @@ meaning    日本語訳
 - 最終目標：VPS上でWebアプリを常時稼働させ、外部から安全にアクセスできる状態にする
 ## VPSからAWSへの移行方針
 
+## 参考資料
+### 参考資料
+
+- YouTube：[このはな技術室｜小型PCで最強の個人用自宅サーバーを構築する]
+- 参考箇所：DuckDNSによるドメイン取得・DNS設定
+
+- YouTube：[Python FastAPI Tutorial (Part 18): Deploy to a VPS - Security, Nginx, SSL, and Custom Domain]
+- 参考箇所：FastAPIのVPSデプロイ、Nginx、systemd、SSH、HTTPS化
+
+- Webサイト：[Qyvera - Deploy React FastAPI VPS Nginx]
+- 参考箇所：React・FastAPIのVPSデプロイ、`npm ci`、`npm run build`、`dist/`の配置方法
+
