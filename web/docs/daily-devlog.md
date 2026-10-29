@@ -1238,9 +1238,12 @@ systendサービスの再起動
 ### 作業内容
 #### OAuth2.0,OIDC導入
 - OAuth,OIDCのイメージ：OAuthは竿・針・アクセストークン用の餌を提供、OIDCは追加のIDトークン用の針と餌を提供する。さらに、IDトークンの餌で釣れる魚の種類が多いから、どの種が誰のものなのかを確認するための図鑑も追加する。実際に竿や餌を使って釣るのはGoogleで、FastAPIがOIDCのやり方でGoogleに依頼してトークンを受け取り、図鑑を使ってIDトークンの正しさや「誰か」を確認する。
+- 詳しい学習記録：[OAuth-OIDC-Study-Log](https://github.com/okachi0123-design/OAuth-OIDC-Study-Log)
 ### 設計・判断
 - AWSへの移行前に、Google OAuth 2.0 + OIDCによるログイン認証を導入する。
 - PostgreSQLで利用者ごとのデータを管理し、各利用者が独自の単語データを登録して、オリジナルクイズを作成・実施できるようにする。
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
+- OAuth導入
+- 
