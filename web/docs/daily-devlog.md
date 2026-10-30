@@ -1277,8 +1277,9 @@ oauth.register(
     client_id=CLIENT_ID, #クライアントID
     client_secret=CLIENT_SECRET, #コンフィデンシャルクライアントの認証用秘密情報　認可コードをトークンに交換するときのクライアント認証で使用　
     client_kwargs={
-        "scope": "openid email profile",
-    } #スコープなど追加設定
+        'scope': 'email openid profile', #権限
+        'redirect_url': 'http://localhost:8000/auth', #ユーザーが認証を了承した後、認可コードを認可サーバー→クライアントに送るときの宛先　開発用localhost
+    }
 )
 ```
 
