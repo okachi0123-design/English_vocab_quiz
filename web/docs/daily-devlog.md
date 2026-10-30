@@ -1246,4 +1246,44 @@ systendサービスの再起動
 ### エラー・解決
 ### 次回やること
 - OAuth導入
-- 
+
+## 2026-10-30
+### 作業内容 
+#### OIDC導入計画
+- 動画を参考に既存のFastAPIアプリに、Authlibを使用してGoogleログインを導入する。
+- 認証ライブラリとしてAuthlibを採用
+- 環境が最も近い動画 [FastAPI Tutorial • Implement GOOGLE SIGNIN LIKE A PRO](https://www.youtube.com/watch?v=5h63AfcVerM) を参考にする。
+- セキュリティなど別途必要な技術も追加で導入する
+#### OIDC導入
+##### Authlibの導入
+
+- AuthlibのOAuthクライアント機能を読み込む
+`from authlib.integrations.starlette_client import OAuth`
+- OAuthクライアントの管理オブジェクトを作成
+`oauth = OAuth()`
+- Googleを認証先として登録する
+**Authlibに対して、認可リクエストを作成する際に必要な情報などを事前に登録する**
+- `oauth.register(キーと値)`
+
+
+###### Google OIDCの設定
+
+```python
+oauth = OAuth()
+
+oauth.register(
+    name="google", #Authlib内部での登録名
+    server_metadata_url="https://accounts.google.com/.well-known/openid-configuration", #OIDC DiscoveryのURL　Googleが提供するOIDC設定情報の自動取得用URL
+    client_id=CLIENT_ID, #クライアントID
+    client_secret=CLIENT_SECRET, #コンフィデンシャルクライアントの認証用秘密情報　認可コードをトークンに交換するときのクライアント認証で使用　
+    client_kwargs={
+        "scope": "openid email profile",
+    } #スコープなど追加設定
+)
+```
+
+
+### 設計・判断
+### 学んだこと
+### エラー・解決
+### 次回やること
