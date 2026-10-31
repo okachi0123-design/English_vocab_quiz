@@ -1254,6 +1254,8 @@ systendサービスの再起動
 - 認証ライブラリとしてAuthlibを採用
 - 環境が最も近い動画 [FastAPI Tutorial • Implement GOOGLE SIGNIN LIKE A PRO](https://www.youtube.com/watch?v=5h63AfcVerM) を参考にする。
 - セキュリティなど別途必要な技術も追加で導入する
+- `/`の「挑戦する」を押した後のReactの画面遷移でログイン`/login`に繋がるようにする
+- ログインの流れのためにシークレットモードで"X"や"Youtube"などを確認　"X"はいきなりログイン画面、"Youtube"はメニュー内にログインボタン　今後、説明・挑戦・記録・単語追加ボタンをそれぞれ追加する予定なので"Youtube"形式に決定
 #### OIDC導入
 ##### Authlibの導入
 
@@ -1287,4 +1289,77 @@ oauth.register(
 ### 設計・判断
 ### 学んだこと
 ### エラー・解決
+### 次回やること
+- 続き
+
+## 2026-10-31
+### 作業内容
+#### OIDC導入
+##### ログインエンドポイントの設定
+- ログインボタンを押した直後"/login"の設定
+```
+@app.get("/login")  # Googleログインを開始するエンドポイントを登録
+async def login(request: Request):  # /loginアクセス時に実行される非同期関数
+    url = request.url_for("auth")  # 認可コードの受け取り先（redirect_url）を取得
+    return await oauth.google.authorize_redirect(request, url)  # ブラウザをGoogleの認可サーバーへリダイレクト
+```
+##### 環境見直し
+###### authlibインストール
+- 上をwebサーバーで確認しようとしたとき、authlibライブラリのインストールを忘れていたため、動画の`requirements.txt`から`fastapi-authlib`のインストールを決定
+- 動画内では`fastapi-authlib`をインストールし、`authlib`はその依存関係でインストールしていたが、`fastapi-authlib`が要求するライブラリの環境が古く、以下のライブラリがダウングレードされた
+```
+  Attempting uninstall: sqlalchemy
+    Found existing installation: SQLAlchemy 2.0.52
+    Uninstalling SQLAlchemy-2.0.52:
+      Successfully uninstalled SQLAlchemy-2.0.52
+  Attempting uninstall: pydantic
+    Found existing installation: pydantic 2.13.4
+    Uninstalling pydantic-2.13.4:
+      Successfully uninstalled pydantic-2.13.4
+  Attempting uninstall: h11
+    Found existing installation: h11 0.16.0
+    Uninstalling h11-0.16.0:
+      Successfully uninstalled h11-0.16.0
+  Attempting uninstall: uvicorn
+    Found existing installation: uvicorn 0.52.4
+    Uninstalling uvicorn-0.52.4:
+      Successfully uninstalled uvicorn-0.52.4
+  Attempting uninstall: starlette
+    Found existing installation: starlette 1.6.0
+    Uninstalling starlette-1.6.0:
+      Successfully uninstalled starlette-1.6.0
+  Attempting uninstall: fastapi
+    Found existing installation: fastapi 0.141.1
+    Uninstalling fastapi-0.141.1:
+      Successfully uninstalled fastapi-0.141.1
+
+Successfully installed Mako-1.4.3 MarkupSafe-3.0.4 PyMySQL-1.2.3 aiomysql-0.1.1 alembic-1.19.2 authlib-1.9.1 cffi-2.1.1 cryptography-50.0.2 dynaconf-3.3.5 fastapi-0.95.2 fastapi-authlib-0.0.4 fastapi-sa-0.1.0 h11-0.14.0 httpcore-0.17.3 httpx-0.24.1 inflection-0.5.1 itsdangerous-2.2.0 joserfc-1.7.7 pycparser-3.12 pydantic-1.10.27 pyjwt-2.15.1 sniffio-1.3.1 sqlalchemy-1.4.46 starlette-0.27.0 uvicorn-0.21.1
+```
+- そのため、`fastapi-authlib`と依存先の`fastapi-sa`をアンインストールし、`authlib`本体の利用に変更した
+
+###### client_id,secret用のconfigファイル追加
+- 同じくwebサーバーを開く際に、`CLIENT_ID, CLIENT_SECRET`のconfigファイルを作っていないことに気づいた
+- 新たにconfファイルを追加し
+```
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+CLIENT_ID = os.getenv("AUTH_CLIENT_ID")
+CLIENT_SECRET = os.getenv("AUTH_CLIENT_SECRET")
+```
+- .env,.env_exampleに↓を追加した
+```
+AUTH_CLIENT_ID=
+
+AUTH_CLIENT_SECRET=
+```
+##### ログインエンドポイントの設定続き
+- webサーバー起動成功後　`/docs`でlogin追加を確認
+- URLパスに`/login`を追加して、存在することを確認 `Internal Server Error`
+### 設計・判断
+### 学んだこと
+### エラー・解決
+
 ### 次回やること
