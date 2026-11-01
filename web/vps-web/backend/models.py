@@ -12,3 +12,8 @@ class Answer(BaseModel):
 class NewQuestion(BaseModel):
     word: str
     meaning: str
+
+class Users(BaseModel):
+    sub: str
+    uid: int
+    is_allowed: bool 
