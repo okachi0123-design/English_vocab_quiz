@@ -1363,3 +1363,47 @@ AUTH_CLIENT_SECRET=
 ### エラー・解決
 
 ### 次回やること
+- `/auth`導入
+
+## 2026-11-01
+### 作業内容
+#### OIDC導入
+##### /auth導入
+- `/login`後認可コードを受け取る場所`/auth`を用意
+```
+@app.get('/auth') #認可コード受け取り場所 /auth
+async def auth(request: Request): #認可コードを受け取り、送信してトークンを取得する関数
+    try:
+        token = await oauth.google.authorize_access_token(request) #非同期で認可コードを送りアクセストークンのリクエストを送る
+    except OAuthError as e: #エラー時の処理　as e:エラー内容を変数eに保存
+    
+        raise HTTPException(
+              status_code=400,
+              detail="認証に失敗しました"
+        ) #HTTPステータス（400エラー）とエラーメッセージ
+    user = token.get('userinfo') #トークンの取得結果からuserinfoを取り出し、変数userに保存
+    if user: #userあれば
+        request.session['user'] = dict(user) #user情報を辞書にして、セッションに保存
+        return "認証に成功しました"
+    raise HTTPException(
+                status_code=401,
+                detail="ユーザー情報が見つかりませんでした"
+    ) #HTTPステータス（401エラー）とエラーメッセージ
+```
+- SessionMiddleware導入
+- ↑保存後`SessionMiddleware must be installed to access request.session`と出た
+- Cookieを使用したセッション管理を導入する
+```
+from starlette.middleware.sessions import SessionMiddleware
+app.add_middleware(SessionMiddleware,secret_key="COOKIE管理用秘密鍵")
+```
+- 完了後、`/docs`でチェック　関数が動いていることを確認
+`"GET /auth HTTP/1.1" 400 Bad Request`
+`"detail": "認証に失敗しました"`
+##### ユーザー情報照合の導入
+- ↑の関数では、Googleからユーザー情報が届きさえすれば完了する設計ということに気づいた
+- `userinfo`から何らかのキーを取りだして、ユーザー情報を保存したDBに検索を掛ける仕組みの導入が必要
+### 設計・判断
+### 学んだこと
+### エラー・解決
+### 次回やること
