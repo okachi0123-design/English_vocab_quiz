@@ -1401,6 +1401,7 @@ app.add_middleware(SessionMiddleware,secret_key="COOKIE管理用秘密鍵")
 `"GET /auth HTTP/1.1" 400 Bad Request`
 `"detail": "認証に失敗しました"`
 ##### ユーザー情報照合の導入
+###### 設計
 - ↑の関数では、Googleからユーザー情報が届きさえすれば完了する設計ということに気づいた
 - `userinfo`から何らかのキーを取りだして、ユーザー情報を保存したDBに検索を掛ける仕組みの導入が必要
 - userinfo(dict)に保存されるIDトークンのフォーマットが以下のJWT形式と学んだ 
@@ -1413,9 +1414,128 @@ app.add_middleware(SessionMiddleware,secret_key="COOKIE管理用秘密鍵")
 sub = user.get('sub')
 uid = identify_user(user.sub)
 ```
-- 新テーブルの追加
-- 
-### 設計・判断
+###### テーブルの追加
+- テーブル構造：モデルが`sub,uid,is_allowed`でis_allowedの○×を手動で決める
+- モデル設計
+- pydantic
+```
+class Users(BaseModel):
+    sub: str
+    uid: int
+    is_allowed: bool 
+```
+- SQL
+```
+class SQLclassUsers(Base):
+
+    __tablename__ = "webquiz_users"
+
+    sub = Column(String)
+    uid = int Column(Integer, primary_key=True, index=True)
+    is_allowed = Column(Boolean)
+```
+- is_allowedを手動にする方法を考える
+- 追加時は自動でfalseになる`default=False`
+- Nullの状態での保存を禁止する`nullable=False`
+- を追加することでFalse以外で保存されないようにする
+`is_allowed = Column(Boolean, default=False, nullable=False)`
+- subの設定
+- `nullable=False`をsubにも追加する必要があると思い、subの設定を考え直した
+- `nullable=False`と二重登録を防ぐ`unique=True`を追加
+`sub = Column(String,  nullable=False, unique=True)`
+- テーブルの確認
+`sql_dbmodels.Base.metadata.create_all(bind=engine)`でモデルの保存後自動でテーブルが追加されるので追加後、pgadminで各種設定を確認
+###### 関数の作成
+- identify_user.py
+```
+from sqlalchemy.orm import Session
+import sql_dbmodels
+
+def identify_user(sub: str,db: Session):
+    user_data = db.query(sql_dbmodels.SQLUsers).filter(sql_dbmodels.SQLUsers.sub == sub).first()
+    return user_data
+```
+- main.py　@app.get('/auth')を変更
+```
+@app.get('/auth') #認可コード受け取り場所 /auth
+async def auth(request: Request, db: Session = Depends(get_db)): #認可コードを受け取り、送信してトークンを取得する関数
+    try:
+        token = await oauth.google.authorize_access_token(request) #非同期で認可コードを送りアクセストークンのリクエストを送る
+    except OAuthError as e: #エラー時の処理　as e:エラー内容を変数eに保存
+    
+        raise HTTPException(
+              status_code=400,
+              detail="認証に失敗しました"
+        ) #HTTPステータス（400エラー）とエラーメッセージ
+    user = token.get('userinfo') #トークンの取得結果からuserinfoを取り出し、変数userに保存
+    if user: #userあれば
+        sub = user.get('sub')
+        if sub:
+            user_data = identify_user(sub, db)
+            if user_data:
+                if user_data.is_allowed == True:
+                    request.session['uid'] = user_data.uid #user情報からuidを見つけて、セッションに保存
+                    return "認証に成功しました"
+                else:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="認証が許可されていません"
+                        )
+            else:
+                db.add(sql_dbmodels.SQLUsers(sub=sub, is_allowed=False))
+                db.commit()
+                raise HTTPException(
+                        status_code=403,
+                        detail="ユーザー情報を送信しました。管理者の許可をお待ちください。"
+                        )
+        else:
+            raise HTTPException(
+                status_code=401,
+                detail="正確なユーザー情報の取得に失敗しました"
+                )
+    raise HTTPException(
+                status_code=401,
+                detail="Googleからユーザー情報を取得できませんでした"
+    ) #HTTPステータス（401エラー）とエラーメッセージ
+```
+- 変更箇所
+```
+#DBセッションを引数に追加
+async def auth(request: Request, db: Session = Depends(get_db)):
+
+#Googleのsubを取得してDBと照合
+sub = user.get('sub')
+if sub:
+    user_data = identify_user(sub, db)
+    if user_data:
+        if user_data.is_allowed == True:
+            request.session['uid'] = user_data.uid
+            return "認証に成功しました" #ユーザー認証に条件追加、cookieセッションに保存する情報の変更 全データuser→uidのみ
+        else:
+            raise HTTPException(
+                status_code=403,
+                detail="認証が許可されていません"
+            )
+    else:
+        db.add(sql_dbmodels.SQLUsers(sub=sub, is_allowed=False))
+        db.commit()
+        raise HTTPException(
+            status_code=403,
+            detail="ユーザー情報を送信しました。管理者の許可をお待ちください。"
+        ) #subがDBにない時、subとuid（自動割り振り）を仮登録するようにした
+else:
+    raise HTTPException(
+        status_code=401,
+        detail="正確なユーザー情報の取得に失敗しました"
+    )
+
+#トークン取得失敗時のエラーメッセージの変更　他との区別
+ raise HTTPException(
+                status_code=401,
+                detail="Googleからユーザー情報を取得できませんでした"
+    )
+
+```
 ### 設計・判断
 - 新テーブルの追加をDBで分けるかテーブルで分けるか
 - 結論：テーブルで分ける
@@ -1428,3 +1548,5 @@ uid = identify_user(user.sub)
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
+- test.pyでトークンなしで引数を送ってテスト
+- Google側設定
