@@ -1548,5 +1548,93 @@ else:
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
-- test.pyでトークンなしで引数を送ってテスト
+- トークンなしで引数を送ってテスト
 - Google側設定
+
+## 2026-11-02
+### 作業内容
+#### 新テーブルと関数のテスト
+- 一時的にテスト用関数の用意
+```
+@app.post('/auth') #認可コード受け取り場所 /auth
+async def authtest(request: Request, user: Users, db: Session = Depends(get_db)): #認可コードを受け取り、送信してトークンを取得する関数
+    
+    if user: #userあれば
+        sub = user.sub
+        if sub:
+            user_data = identify_user(sub, db)
+            if user_data:
+                if user_data.is_allowed == True:
+                    request.session['uid'] = user_data.uid #user情報からuidを見つけて、セッションに保存
+                    return "認証に成功しました"
+                else:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="認証が許可されていません"
+                        )
+            else:
+                db.add(sql_dbmodels.SQLUsers(sub=sub, is_allowed=False))
+                db.commit()
+                raise HTTPException(
+                        status_code=403,
+                        detail="ユーザー情報を送信しました。管理者の許可をお待ちください。"
+                        )
+        else:
+            raise HTTPException(
+                status_code=401,
+                detail="正確なユーザー情報の取得に失敗しました"
+                )
+    raise HTTPException(
+                status_code=401,
+                detail="Googleからユーザー情報を取得できませんでした"
+    ) #HTTPステータス（401エラー）とエラーメッセージ
+```
+- 正常に`sub`が入ったデータ`user`を送信→`status_code=403,"ユーザー情報を送信しました。管理者の許可をお待ちください。"`と出て、pgadminで追加されていること、uidの自動採番、デフォルトのfalseを確認
+- subを変更して送信→↑と同様の結果で、自動採番を確認
+- 同データを再度送信→`403,detail="認証が許可されていません"`でfalseの確認
+- pgadminで許可後、登録済み`sub`の入ったデータを送信→`200 "認証に成功しました"`
+- `sub`を`""`で空にして送信→` 401,detail="正確なユーザー情報の取得に失敗しました"`
+- 引数を`user:　Users | None = None`に変更して、データを`null`にして送信→
+  `401,detail="Googleからユーザー情報を取得できませんでした"`
+
+#### Google設定
+- googlecloudconsoleにログインし、新しいプロジェクトを選択して、作成する
+`URL:https://console.cloud.google.com`
+- 各種設定
+- Google Auth Platform
+```
+１．検索でGoogle Auth Platformを調べて開く
+２．開始を選択して、設定項目を入力　アプリ情報→対象（外部）→作成
+３．テストユーザーの追加
+４．クライアントの作成
+種類：WEBアプリ
+　　　承認済みの JavaScript 生成元　なし　
+　　　承認済みのリダイレクト URI　http://localhost:8000/auth
+↑　構造上、Javascriptで直接ログイン手順を引き出すよりも、apiを介して行った方が、後のuid識別機能と組み合わせやすい
+５．作成後、client_idとclient_secretを.envに保存
+```
+- 認証テスト
+- `Missing "authorize_url" value`でurlに問題あり
+- `server_metadata_url=''`にURIを追加が必要
+`server_metadata_url='https://accounts.google.com/.well-known/openid-configuration'`#OIDCサービスを使用するためのディスカバリドキュメントのURI
+- 再度テスト`アクセスをブロック: このアプリのリクエストは無効です　エラー 400: redirect_uri_mismatch`　←詳細↓エラー・解決
+- エラーを解決し再度テスト
+- ログイン画面表示→ログイン→`{"detail":"ユーザー情報を送信しました。管理者の許可をお待ちください。"}`
+- DBの確認　追加されて、`uid,is_allowed`設定も成功
+- trueにして再度ログイン成功
+
+#### 関数にログイン依存の追加
+### 設計・判断
+### 学んだこと
+### エラー・解決
+- リクエスト無効エラー
+- 詳細文：認可リクエストで渡された redirect_uri が、OAuth クライアント ID の承認済みリダイレクト URI と一致しません。
+- 原因予想：localhost と　http://127.0.0.1:8000/の不一致
+→`http://localhost:8000/auth`コードと登録先共に同じ
+- 原因予想２：検索時のURLの指定が`127.0.0.1:8000`
+→localhostに変更でログイン可能に
+- 原因：検索時のURLの指定が`127.0.0.1:8000`でコードと承認済みリダイレクトURIが`localhost`と一致しなかったから
+- 解決：`localhost`に統一
+
+### 次回やること
+
