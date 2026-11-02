@@ -1624,6 +1624,43 @@ async def authtest(request: Request, user: Users, db: Session = Depends(get_db))
 - trueにして再度ログイン成功
 
 #### 関数にログイン依存の追加
+- ログインと`is_allowed`を確認する関数の追加
+- パス認証の数字だけ返す方法→ステータスコード、メッセージを返す方法に変更
+- 理由：エラーの種類が多く、各々にifをしたらコードが長くなる
+```
+def login_checker(request: Request, db: Session = Depends(get_db)):
+    uid = request.session.get('uid')
+    if uid:
+        permission = db.query(sql_dbmodels.SQLUsers.is_allowed).filter(sql_dbmodels.SQLUsers.uid == uid).scalar()
+        if permission == True:
+            check_result = 1
+            return check_result 
+        elif permission == False:
+            raise HTTPException(
+                        status_code=403,
+                        detail="認証が許可されていません"
+                        )
+        else:
+            raise HTTPException(
+                status_code=401,
+                detail="ユーザー情報が登録されていません"
+                )
+    else: 
+        raise HTTPException(
+                status_code=401,
+                detail="ログインしてください"
+                )
+```
+- Dependsにして追加
+`login_check_result: int = Depends(login_checker)`
+`if login_check_result == 1:`
+- 全関数のチェック
+```
+ログイン済みcookie(True):全関数OK
+ログイン済みcookie(False):全関数OK
+非ログインcookie:全関数OK
+＊ログイン済み（Null）チェックできなかった
+```
 ### 設計・判断
 ### 学んだこと
 ### エラー・解決
@@ -1635,6 +1672,8 @@ async def authtest(request: Request, user: Users, db: Session = Depends(get_db))
 →localhostに変更でログイン可能に
 - 原因：検索時のURLの指定が`127.0.0.1:8000`でコードと承認済みリダイレクトURIが`localhost`と一致しなかったから
 - 解決：`localhost`に統一
+
+- 
 
 ### 次回やること
 
