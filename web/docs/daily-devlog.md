@@ -1983,7 +1983,73 @@ requested 〇
 data_failed 〇
 google_request_failed 〇
 ```
-##### 5
+##### 5:ログ関数の導入
+- Pythonログの学習→ [logging.md](https://github.com/okachi0123-design/Python-study-log/blob/main/standard-library/logging.md)に記録
+- ログ設計
+```
+認証結果に応じてログレベルとメッセージを変更する。
+ユーザーを特定できる場合はuidをログに追加する。
+.各ログメッセージ
+ERROR：トークンリクエスト送信エラー（e.errorを追加）
+INFO：認証成功（uidを追加）
+INFO：認証済未許可（uidを追加）
+INFO：新規登録（uidを追加）
+WARNING：sub取得失敗
+WARNING：Googleユーザー情報取得失敗
+・uidの記録
+既存ユーザーは`user_data.uid`を使用する。
+新規ユーザーはDB登録後に再検索し、ログに記録する。
+logger.info("認証成功 uid=%s", user_data.uid)のように%sでuidを埋め込む。
+
+```
+- ログ記述用ファイル`logger.py`、作成するログ記述関数`auth_logging()`を作成し  import
+- 書いてみたらファイルである必要がなかったため、main.pyに直接書きこむ
+
+```
+from logging import getLogger, StreamHandler, Formatter, INFO, WARNING
+
+logger=getLogger(__name__) #ログ出力命令
+handler=StreamHandler() #ログ出力方法
+logger.setLevel(INFO) #扱うログレベルの指定
+
+@app.get('/api/auth') #認可コード受け取り場所 /auth
+async def auth(request: Request, db: Session = Depends(get_db)): #認可コードを受け取り、送信してトークンを取得する関数
+    try:
+        token = await oauth.google.authorize_access_token(request) #非同期で認可コードを送りアクセストークンのリクエストを送る
+    except OAuthError as e: #エラー時の処理　as e:エラー内容を変数eに保存
+        logger.error("トークンリクエスト送信エラー: %s", e.error)
+        raise HTTPException(
+              status_code=400,
+              detail="認証に失敗しました"
+        ) #HTTPステータス（400エラー）とエラーメッセージ
+    user = token.get('userinfo') #トークンの取得結果からuserinfoを取り出し、変数userに保存
+    if user: #userあれば
+        sub = user.get('sub')
+        if sub:
+            user_data = identify_user(sub, db)
+            if user_data:
+                if user_data.is_allowed == True:
+                    request.session['uid'] = user_data.uid #user情報からuidを見つけて、セッションに保存
+                    logger.info("認証成功 uid=%s", user_data.uid)
+                    return RedirectResponse(url="http://localhost:5173/?auth_result=allowed") 
+                else:
+                    logger.info("認証済未許可 uid=%s", user_data.uid)
+                    return RedirectResponse(url="http://localhost:5173/?auth_result=denied") 
+            else:
+                db.add(sql_dbmodels.SQLUsers(sub=sub, is_allowed=False))
+                db.commit()
+                added_data = identify_user(sub, db)
+                logger.info("新規登録 uid=%s", added_data.uid)
+                return RedirectResponse(url="http://localhost:5173/?auth_result=requested") 
+        else:
+            logger.warning("sub取得失敗")
+            return RedirectResponse(url="http://localhost:5173/?auth_result=data_failed") 
+    logger.warning("Googleユーザー取得失敗")
+    return RedirectResponse(url="http://localhost:5173/?auth_result=google_request_failed") 
+    #HTTPステータス（401エラー）とエラーメッセージ
+
+```
+
 
 ### 設計・判断
 ### 学んだこと
