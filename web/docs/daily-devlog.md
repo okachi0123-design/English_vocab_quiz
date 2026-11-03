@@ -1882,6 +1882,108 @@ def login_checker(request: Request, db: Session = Depends(get_db)):
 ```
 - ログ管理しつつ、リダイレクトをしたい
 - 2+5で行う
+##### 2:RedirectResponseの設定
+- 各関数の`raise`を`RedirectResponse`に変更して、パラメータを割り振る
+```
+           user_data = identify_user(sub, db)
+            if user_data:
+                if user_data.is_allowed == True:
+                    request.session['uid'] = user_data.uid #user情報からuidを見つけて、セッションに保存
+                    return RedirectResponse(url="http://localhost:5173/?auth_result=allowed") 
+                else:
+                    return RedirectResponse(url="http://localhost:5173/?auth_result=denied") 
+            else:
+                db.add(sql_dbmodels.SQLUsers(sub=sub, is_allowed=False))
+                db.commit()
+                return RedirectResponse(url="http://localhost:5173/?auth_result=requested") 
+        else:
+            return RedirectResponse(url="http://localhost:5173/?auth_result=data_failed") 
+    return RedirectResponse(url="http://localhost:5173/?auth_result=google_request_failed") 
+```
+- react側で判断させるために、codexに今回の変更を伝える
+```
+今回のあなたの仕事は　@app.get('/api/auth')  の結果として送られるクエリパラメータに応じて、reactの画面にメッセージを表示させることです。
+
+変更点
+            if user_data:
+                if user_data.is_allowed == True:
+                    request.session['uid'] = user_data.uid #user情報からuidを見つけて、セッションに保存
+                    return "認証に成功しました"
+                else:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="認証が許可されていません"
+                        )
+            else:
+                db.add(sql_dbmodels.SQLUsers(sub=sub, is_allowed=False))
+                db.commit()
+                raise HTTPException(
+                        status_code=403,
+                        detail="ユーザー情報を送信しました。管理者の許可をお待ちください。"
+                        )
+        else:
+            raise HTTPException(
+                status_code=401,
+                detail="正確なユーザー情報の取得に失敗しました"
+                )
+    raise HTTPException(
+                status_code=401,
+                detail="Googleからユーザー情報を取得できませんでした"
+                    return RedirectResponse(url="http://localhost:5173/?auth_result=allowed") 
+                else:
+                    return RedirectResponse(url="http://localhost:5173/?auth_result=denied") 
+            else:
+                db.add(sql_dbmodels.SQLUsers(sub=sub, is_allowed=False))
+                db.commit()
+                return RedirectResponse(url="http://localhost:5173/?auth_result=requested") 
+        else:
+            return RedirectResponse(url="http://localhost:5173/?auth_result=data_failed") 
+    return RedirectResponse(url="http://localhost:5173/?auth_result=google_request_failed") 
+‐以上の様にraiseでHTTPステータス＋discriptionで表示していた方法から、リダイレクト＋クエリパラメータでデータを送信する形に変えました。
+
+成功要件
+
+・リダイレクトが可能
+
+・各段階に応じて、それぞれ対応するエラーメッセージが表示されること
+
+・クエリパラメータが存在しない場合通常ページが表示されること
+
+・既存機能が動くかテストを行い、結果を示すこと
+
+条件
+
+・変更箇所の記録必須
+
+・バックエンドには手を付けない
+
+・最小限の変更　既存のコードの確認必要
+
+・表示するメッセージ
+auth_result	メッセージ
+allowed	ログインに成功しました。
+denied	アプリの利用が許可されていません。
+requested	ユーザー情報を送信しました。管理者の許可をお待ちください。
+data_failed	正確なユーザー情報の取得に失敗しました。
+google_request_failed	Googleからユーザー情報を取得できませんでした。
+```
+- 実装完了後
+- テスト(API)
+```
+True 〇
+False 〇
+データなし 〇
+データなし（別アカウント） 〇
+```
+‐ テスト（クエリパラメータ直接指定、エラーメッセージと挑戦時の誤って認可されないか）
+```
+allowed 〇
+denied 〇
+requested 〇
+data_failed 〇
+google_request_failed 〇
+```
+##### 5
 
 ### 設計・判断
 ### 学んだこと
@@ -1900,5 +2002,12 @@ def login_checker(request: Request, db: Session = Depends(get_db)):
 
 - 解決
   - `localhost:5173`に統一してログインする
+---
+- True→Falseに変更したがログインが通るエラー
+- 原因
+- pgAdminの画面上では`is_allowed=False`に変更されていたが、実際のDBには反映されておらず、`True`のままだった。
+- テーブルを開き直すことで判明した。
+- 解決
+- 再度`is_allowed=False`に変更して保存。
 
 ### 次回やること
