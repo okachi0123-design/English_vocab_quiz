@@ -2095,6 +2095,9 @@ Congratulations, all simulated renewals succeeded:
 ```
 - 成功
 
+- SSHへの影響確認
+- 接続した状態で、新規ターミナルからSSH接続をテスト
+- 成功
 ##### 注意点
 - iptablesに直接追加したルールは、再起動やUFWの再読み込みなどで消える可能性がある。
 - 根本対策には修正済みLinuxカーネルへの更新と再起動が必要
@@ -2108,7 +2111,7 @@ Congratulations, all simulated renewals succeeded:
 - 更新後に再起動し、`uname -r` でバージョンを確認する。
 - 修正適用を確認した後、一時対策ルールを削除する。
 
-## 参考資料
+##### 参考資料
 - [Ubuntu公式：CVE-2026-98432](https://ubuntu.com/blog/fixes-available-in-proposed-pocket-for-cve-2026-98432)
 - [AWS Security Bulletin](https://aws.amazon.com/security/security-bulletins/2026-160-aws/)
 
