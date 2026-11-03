@@ -430,7 +430,9 @@ def ask_question(answer: Answer, db: Session):
 - check_and_counter
 - まず`answers`リストのidだけを抜き出して、`answer_ids`リストに`append`
 - そのリストでDB検索
-`検索方法：　db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.id.in_(answer_ids)).all()　　と、== + first ではなく　in_(リスト) + all の形`
+`検索方法：　
+Attach files by dragging & dropping, selecting or pasting them.
+db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.id.in_(answer_ids)).all()　　と、== + first ではなく　in_(リスト) + all の形`
 - questionsリストを全てsolutionsに変換
 ```
 @app.post("/quiz")
@@ -2055,6 +2057,60 @@ async def auth(request: Request, db: Session = Depends(get_db)): #認可コー�
 - ログイン済許可、未許可、新規いずれの場合もログがターミナルに表示された
 - Warningの２つは調査できなかった
 - URLを直接指定した場合は、FastAPIには関係ないためリダイレクトのみ行われた
+
+#### Linuxカーネルの脆弱性対策（CVE-2026-98432）
+- 10/30にカーネル更新の対策を行ったが、その時点では対策がなされていなかったので、新たに対策を行った。
+- CertbotとVPSへのSSHを使用しているため、TCP通信を完全に遮断することはできない
+##### 脆弱性の概要
+- CVE：CVE-2026-98432
+- 深刻度：CVSS 9.8（Critical）
+- LinuxカーネルのIPv4 TCP接続処理におけるUse-After-Free（解放済みメモリの使用）の脆弱性。
+- 認証されていない外部の攻撃者によって、リモートコード実行などが発生する可能性がある。
+
+##### 実施した対策（2026/11/03）
+- iptablesによる一時的な対策
+`sudo iptables -I INPUT 1 -p tcp -m u32 --u32 '0>>24&0x0f=6:15' -j DROP`
+- `-I INPUT 1`：INPUTチェーンの先頭にルールを追加。
+- `-p tcp`：TCP通信を対象にする。
+- `-m u32`：パケットのヘッダー情報を数値として検査する。
+- `0>>24&0x0f=6:15`：IPv4ヘッダー長が6〜15（24〜60バイト）のパケットを検出する。
+- `-j DROP`：条件に一致したパケットを破棄する。
+通常のIPv4ヘッダー長は20バイト（値5）。20バイトより長いヘッダーにはIPv4オプションが含まれる。
+今回の脆弱性に関係するIPv4オプション付きTCPパケットを遮断することで、攻撃リスクの軽減を図る。
+
+- ルールの適用確認
+`sudo iptables -S INPUT`
+実行結果：
+```
+-P INPUT DROP
+-A INPUT -p tcp -m u32 --u32 "0x0>>0x18&0xf=0x6:0xf" -j DROP
+```
+
+- Certbotへの影響確認
+`sudo certbot renew --dry-run`
+実行結果：
+```
+Congratulations, all simulated renewals succeeded:
+  /etc/letsencrypt/live/my-webquiz.duckdns.org/fullchain.pem (success)
+```
+- 成功
+
+##### 注意点
+- iptablesに直接追加したルールは、再起動やUFWの再読み込みなどで消える可能性がある。
+- 根本対策には修正済みLinuxカーネルへの更新と再起動が必要
+
+##### ルールの削除方法
+`sudo iptables -D INPUT -p tcp -m u32 --u32 '0>>24&0x0f=6:15' -j DROP`
+
+##### 今後の対応
+- テスト段階の最新カーネルの更新をするか否かを考える。
+- Ubuntuの修正済みカーネルが正式配布されたら更新する。
+- 更新後に再起動し、`uname -r` でバージョンを確認する。
+- 修正適用を確認した後、一時対策ルールを削除する。
+
+## 参考資料
+- [Ubuntu公式：CVE-2026-98432](https://ubuntu.com/blog/fixes-available-in-proposed-pocket-for-cve-2026-98432)
+- [AWS Security Bulletin](https://aws.amazon.com/security/security-bulletins/2026-160-aws/)
 
 ### 設計・判断
 ### 学んだこと
