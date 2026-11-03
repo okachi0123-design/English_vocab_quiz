@@ -2049,7 +2049,12 @@ async def auth(request: Request, db: Session = Depends(get_db)): #認可コー�
     #HTTPステータス（401エラー）とエラーメッセージ
 
 ```
-
+- テスト
+- 失敗　原因`logger.addHandler(handler)`と`handler.setFormatter(formatter)`を忘れていた
+- 再テスト
+- ログイン済許可、未許可、新規いずれの場合もログがターミナルに表示された
+- Warningの２つは調査できなかった
+- URLを直接指定した場合は、FastAPIには関係ないためリダイレクトのみ行われた
 
 ### 設計・判断
 ### 学んだこと
@@ -2077,3 +2082,4 @@ async def auth(request: Request, db: Session = Depends(get_db)): #認可コー�
 - 再度`is_allowed=False`に変更して保存。
 
 ### 次回やること
+- 最終チェック後VPSデプロイ
