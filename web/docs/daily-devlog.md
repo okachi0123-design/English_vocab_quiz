@@ -2167,6 +2167,7 @@ Congratulations, all simulated renewals succeeded:
 
 ###### セッションハイジャック
 - ↑の二つを改ざんするためにセッションハイジャックを試したが、これではピンポイントでNonceとcode_verifierを変えることが出来なかった
+- - セッションハイジャックの仕組みと対策について、[YouTube「【初心者向け】パスワード不要でログイン突破？セッションハイジャックの恐怖」](https://www.youtube.com/watch?v=_1T3jrW1RBY)を参考に学習した。
 - セッションハイジャックの流れ
 ```
 1. 登録済みTrueユーザーでログイン
@@ -2176,6 +2177,41 @@ Congratulations, all simulated renewals succeeded:
 - 開発者ツールの`Application → Cookies`からsessionの値を書き換える
 4. クイズに挑戦できる
 →cookie内の情報にsubなどのデータが入っているので、既に認証済ユーザーとしてログインした状態と認識されて挑戦出来た
+```
+- セッションハイジャックの防止→HTTPS通信以外にSecure,HTTPOnly,Samesite,cookieの期限の設定が必要
+- セッション設定へ↑の項目を追加 参考：[Starlette公式ドキュメント「Response.set_cookie()」](https://starlette.dev/responses/#set-cookie)
+```
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SECRET_COOKEY,
+    secure=True, #HTTPS,SSLのときだけcookieがサーバーに送信されるかどうかのブール値
+    httponly=True, #JavaScript から Cookie にアクセスできないようにするかどうかのブール値
+    samesite="lax", #クロスサイトリクエストを防ぐ
+    max_age=3600 #有効期限（秒）
+    )
+```
+- samesite補足
+```
+Strict：クロスサイトリクエストではCookieを送信しない。　＊これだとOAuthのコールバック時にcookieが送信されない
+Lax：クロスサイトの通常のリンクによるGET画面遷移などでは送信を許可する。
+None：クロスサイトでもCookie送信を許可する（Secure属性が必要）。
+```
+**テスト**
+- `secure`が存在しないエラー
+- `sessionMiddleware`では、`secure=True`ではなく`https_only=True`
+- `http_omly`は自動でTrue *`secure`は`Response.set_cookie()`
+- `samesite="lax"`は`same_site="lax"`
+- 参考[Starlette公式ドキュメント「SessionMiddleware」](https://starlette.dev/middleware/#sessionmiddleware)
+- 動かないと思っていたが`https_only=True`ありの状態で動いた→ブラウザがlocalhostを例外的に扱うため
+- 追加項目のテスト
+```
+・Apllication→CookieでHTTPOnly,Secureにチェック 〇 ,Samesite Lax 〇
+・HTTPSで動くかは本番で確認
+・SameSite
+コールバック出来ている確認→ログイン 〇
+クロスサイトは後日テスト
+・max_age=10にしてCookieが消えるかチェック　ログインして１０秒後、Cookiesを再度開くと消えた 〇　クイズ挑戦拒否 〇
+
 ```
 ###### Nonceのチェック
 - セッションハイジャックを調整していた中で、Cookieの署名鍵を変更した後、別アカウントでGoogleログインを押した際に、Googleログイン画面のURLで`client_id,nonce,response_type,state,flowName,continue,app_domain,rart`などのパラメータがあった
@@ -2321,7 +2357,8 @@ def logout(request: Request, login_check_result: int = Depends(login_checker)):
         request.session.clear()
         return RedirectResponse(url="http://localhost:5173/?status=logouted")
 ```
-- テスト　レイアウト 〇、ログアウト 〇、ログアウト状態でログアウト 〇
+- テスト　レイアウト 〇、ログアウト 〇、ログアウト状態でログアウト 〇、cookieの削除 〇、再ログイン 〇
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
+- 本番環境導入
