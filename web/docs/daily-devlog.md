@@ -2235,6 +2235,13 @@ async def login(request: Request):
 - - [Authlib公式ドキュメント](https://docs.authlib.org/en/stable/oauth2/client/web/index.html#oauth-2-0-code-challenge)のWebClients-OAuth 2.0 Code Challengeを参考にPKCEを導入した。
 - `client_kwargs`に`"code_challenge_method": "S256",`を追加した
 - ログイン時のURLに`code_challenge=`が追加されていることを確認した
+- PKCE導入後のコードチェック
+```
+True 〇
+False 〇
+データなし 〇
+Trueログイン後挑戦前False変更 〇
+```
 
 - **PKCE改ざんによるチェック**
 - `/api/login`の`authorize_redirect()`で生成したリダイレクトURLの`code_challenge`だけを書き換えた。
@@ -2276,6 +2283,45 @@ async def login(request: Request):
 - Googleがトークン交換を拒否したことを確認。
 - `code_challenge`と`code_verifier`の不一致によって拒否された可能性が高く、PKCEの検証が機能していると考えられる。
 - 検証後、`/api/login`を元のコードに戻した。
+
+##### ログアウト機能追加
+**バックエンド**
+- ログアウトが無いとセッションが残り続けてしまう
+- 参考動画では`pop`を使用していたが、このアプリでは`uid`で区別して、追加しているので`userやuid`だけでは他のデータが残る→clear()ですべて消す
+- リダイレクト時のパラメーターでreactからメッセージを表示する
+```
+@app.get('/logout')
+def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse(url="http://localhost:5173/?status=logouted")
+```
+- get('/ogout')/→post('/api/logout')に変更
+- 理由：CRSF攻撃防止のために状態変遷を伴う操作にはGETではなくPOSTで行うべきだから
+- 参考：[OWASP「Cross-Site Request Forgery Prevention Cheat Sheet」](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html)
+- CRSF＝ユーザーがログインしているWebサイトに対して、攻撃者がユーザーの意図しないリクエストを送信させる攻撃
+**フロントエンド**
+- codexにログアウト用フロントエンド、画面遷移Reactを追加させる＋画面のレイアウトを変更する
+- 命令文
+```
+クイズアプリにログアウト機能を作りました。あなたは、このログアウト機能にpostを送るためのエンドポイントのボタンを作ってください。また、／画面のレイアウトを　２＊２で並べているところを上から　挑戦する１→前回結果１→問題追加１→ｇｏｏｇｌｅログインとログアウトで１列と縦並びにしてください　
+完成条件
+レイアウトが指示通りになっている
+ログアウト後、クエリを受け取って以下のメッセージを表示する"ログアウトしました"
+テストを行い他機能含めて利用可能であること
+条件
+バックエンドに変更を加えない
+変更箇所の記録必須
+最小限の変更　既存のコードの確認必要
+変更箇所は説明必須
+既存APIの使用は必ず確認する
+変更箇所
+以下のコードを追加
+@app.post('/api/logout')
+def logout(request: Request, login_check_result: int = Depends(login_checker)):
+        request.session.clear()
+        return RedirectResponse(url="http://localhost:5173/?status=logouted")
+```
+- テスト　レイアウト 〇、ログアウト 〇、ログアウト状態でログアウト 〇
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
