@@ -2229,11 +2229,11 @@ async def login(request: Request):
 - 検証後`/api/login`を元のコードに戻した。
 
 ###### PKCEのチェック
-- nonceのチェックの時にURLを確認したがcode_challengerやverifierなどそれらしいものが無かった
+- nonceのチェックの時にURLを確認したがcode_challengeやverifierなどそれらしいものが無かった
 - AuthlibではPKCEを導入するためには`"code_challenge_method": "S256",`をclient_kwargsに登録しなければならない事が分かった
 - - [Authlib公式ドキュメント](https://docs.authlib.org/en/stable/oauth2/client/web/index.html#oauth-2-0-code-challenge)のWebClients-OAuth 2.0 Code Challengeを参考にPKCEを導入した。
 - `client_kwargs`に`"code_challenge_method": "S256",`を追加した
-### 設計・判断
+- ログイン時のURLに`code_challenge=`が追加されていることを確認した
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
