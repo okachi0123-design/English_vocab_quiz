@@ -2190,7 +2190,8 @@ Congratulations, all simulated renewals succeeded:
 404 Not Found→Chromeの開発者ツール（DevTools）が/.well-known/appspecific/com.chrome.devtools.json、FastAPIに対して設定ファイルを探すリクエストを送ったがファイルが無かったため
 ```
 - URLを書き換える方法ではstate不一致エラーしか起きず断念　AIの用意した以下の方法を試す
-###### nonceの動作確認
+
+- **nonce改ざんによるチェック**
 - `/api/login`の`authorize_redirect()`で生成したリダイレクトURLの`nonce`だけを書き換えた。
 - Authlibがセッションに保存した元の`nonce`は変更しない。
 
@@ -2234,6 +2235,47 @@ async def login(request: Request):
 - - [Authlib公式ドキュメント](https://docs.authlib.org/en/stable/oauth2/client/web/index.html#oauth-2-0-code-challenge)のWebClients-OAuth 2.0 Code Challengeを参考にPKCEを導入した。
 - `client_kwargs`に`"code_challenge_method": "S256",`を追加した
 - ログイン時のURLに`code_challenge=`が追加されていることを確認した
+
+- **PKCE改ざんによるチェック**
+- `/api/login`の`authorize_redirect()`で生成したリダイレクトURLの`code_challenge`だけを書き換えた。
+- Authlibがセッションに保存した元の`code_verifier`は変更しない。
+
+**変更したコード**
+```python
+from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
+
+@app.get("/api/login")
+async def login(request: Request):
+    url = request.url_for("auth")
+    response = await oauth.google.authorize_redirect(request, url)
+
+    parts = urlsplit(response.headers["location"])
+    params = parse_qsl(parts.query, keep_blank_values=True)
+
+    if not any(k == "code_challenge" for k, v in params):
+        raise RuntimeError("PKCEが有効ではありません")
+
+    params = [
+        (k, "A" * 43 if k == "code_challenge" else v)
+        for k, v in params
+    ]
+
+    response.headers["location"] = urlunsplit((
+        parts.scheme,
+        parts.netloc,
+        parts.path,
+        urlencode(params),
+        parts.fragment
+    ))
+
+    return response
+```
+
+**検証結果**
+- Googleログイン後、トークンリクエストで`invalid_grant`が発生。
+- Googleがトークン交換を拒否したことを確認。
+- `code_challenge`と`code_verifier`の不一致によって拒否された可能性が高く、PKCEの検証が機能していると考えられる。
+- 検証後、`/api/login`を元のコードに戻した。
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
