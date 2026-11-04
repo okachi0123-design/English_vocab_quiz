@@ -2157,7 +2157,82 @@ Congratulations, all simulated renewals succeeded:
 **OAuth**
 - state:リダイレクトURIのホスト名をlocalhostに設定した認可サーバーに127.0.0.1でリクエストを送った時に、`mismatching_state`とstateの不一致エラーが起こり、作動していることを確認した。
 - リクエスト元として127.0.0.1のcookieにstateを保存していたが、コールバック先はlocalhostになっていた
-- 
+**Nonce**
+- Nonce：トークンが誰のものかを判別させることで、トークンが盗まれたときになりすましを防ぐ。セッションのnonceとトークンに付加されたnonceを比較してこのセッション用のトークンなのかを判断する
+- セッションのnonceを変える？
+
+**PKCE**
+- PKCE:最初にクライアントがクライアントがランダムな検証用コードcode_verifierを生成し、ハッシュ化(SHA-256)させたcode_challengeを作る→認可サーバーに認可リクエストとcode_challengeを伝える→Googleはcode_challengeを保存し、クライアントに認可コード（引換券）を渡す→クライアントがcode_verifierと認可コード（引換券）を送る→認可サーバーはcode_verifierを再度ハッシュ化(SHA-256)してcode_challengeと一致するか比較する→一致すればアクセストークンと交換して返信する
+- code_verifierを変える？
+
+###### セッションハイジャック
+- ↑の二つを改ざんするためにセッションハイジャックを試したが、これではピンポイントでNonceとcode_verifierを変えることが出来なかった
+- セッションハイジャックの流れ
+```
+1. 登録済みTrueユーザーでログイン
+2. 正規ユーザーのCookieを開発者ツールの`Application → Cookies`や
+`Network → ?token=~~~のヘッダー`から取得する
+3. 別のログインしていないブラウザにコピーしたCookieを設定
+- 開発者ツールの`Application → Cookies`からsessionの値を書き換える
+4. クイズに挑戦できる
+→cookie内の情報にsubなどのデータが入っているので、既に認証済ユーザーとしてログインした状態と認識されて挑戦出来た
+```
+###### Nonceのチェック
+- セッションハイジャックを調整していた中で、Cookieの署名鍵を変更した後、別アカウントでGoogleログインを押した際に、Googleログイン画面のURLで`client_id,nonce,response_type,state,flowName,continue,app_domain,rart`などのパラメータがあった
+- この中の`nonce`を書き換えてログインする　ログイン成功→ここのnonceを変えても効果が無かった
+- 仮説：urlはこれから送るnonceでそれを送信時にcookieに保存して帰ってきてから確認するから変えても意味が無かった　→　✕
+- 理由：Googleのアカウント選択画面に遷移した時点で、Googleはすでに認可リクエストを受け付けており、選択画面のURLを変更しても反映されないから？今回変更したURLはGoogleが認可リクエストを受け付けた後、アカウント選択画面を表示するためのURLを絞るためのものでnonceの中身として送るパラメータではない。
+- Googleの/signin/...にあるnonceを書き換えても、Request URL（auth?response_type=code...）のnonceは変わらなかった→auth?response_typeのRequest URLを先に送っていて、googleはこれをもとに判断していると思われる
+- このRequest URLを書き換えて送る
+- `nonce=`以下を`korehatesuto`に変えて送る↓で、nonceの前に弾かれている
+```
+400 Bad Request→state不一致エラー
+404 Not Found→Chromeの開発者ツール（DevTools）が/.well-known/appspecific/com.chrome.devtools.json、FastAPIに対して設定ファイルを探すリクエストを送ったがファイルが無かったため
+```
+- URLを書き換える方法ではstate不一致エラーしか起きず断念　AIの用意した以下の方法を試す
+###### nonceの動作確認
+- `/api/login`の`authorize_redirect()`で生成したリダイレクトURLの`nonce`だけを書き換えた。
+- Authlibがセッションに保存した元の`nonce`は変更しない。
+
+**変更したコード**
+```python
+from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
+
+@app.get("/api/login")
+async def login(request: Request):
+    url = request.url_for("auth")
+    response = await oauth.google.authorize_redirect(request, url)
+
+    parts = urlsplit(response.headers["location"])
+    params = parse_qsl(parts.query, keep_blank_values=True)
+
+    params = [
+        (k, "korehatesuto" if k == "nonce" else v)
+        for k, v in params
+    ]
+
+    response.headers["location"] = urlunsplit((
+        parts.scheme,
+        parts.netloc,
+        parts.path,
+        urlencode(params),
+        parts.fragment
+    ))
+
+    return response
+```
+
+**検証結果**
+- Googleログイン後、FastAPIで`500 Internal Server Error`が発生。
+- ログに`InvalidClaimError("nonce")`が表示された。
+- `authlib/oidc/core/claims.py`の`validate_nonce()`でnonceの不一致を検出したことを確認。
+- 検証後`/api/login`を元のコードに戻した。
+
+###### PKCEのチェック
+- nonceのチェックの時にURLを確認したがcode_challengerやverifierなどそれらしいものが無かった
+- AuthlibではPKCEを導入するためには`"code_challenge_method": "S256",`をclient_kwargsに登録しなければならない事が分かった
+- - [Authlib公式ドキュメント](https://docs.authlib.org/en/stable/oauth2/client/web/index.html#oauth-2-0-code-challenge)のWebClients-OAuth 2.0 Code Challengeを参考にPKCEを導入した。
+- `client_kwargs`に`"code_challenge_method": "S256",`を追加した
 ### 設計・判断
 ### 学んだこと
 ### エラー・解決
