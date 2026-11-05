@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { fetchQuestions, QuizApiError, submitAnswers } from "../api/quizApi";
 import { QuestionCard } from "../components/QuestionCard";
 import { QuizSetup } from "../components/QuizSetup";
@@ -7,6 +7,7 @@ import { ResultSummary } from "../components/ResultSummary";
 import type { Question, QuizPhase, QuizResult } from "../types/quiz";
 
 export function QuizPage() {
+  const navigate = useNavigate();
   const [phase, setPhase] = useState<QuizPhase>("setup");
   const [password, setPassword] = useState("");
   const [requestedCount, setRequestedCount] = useState(0);
@@ -20,6 +21,18 @@ export function QuizPage() {
     () => questions.filter((question) => (answers[question.id] ?? "").trim() !== "").length,
     [answers, questions],
   );
+
+  const handleApiError = (caught: unknown, fallback: string) => {
+    if (caught instanceof QuizApiError && caught.isAuthenticationError) {
+      setQuestions([]);
+      setAnswers({});
+      setPassword("");
+      setResult(null);
+      navigate("/", { replace: true, state: { authError: caught.message } });
+      return;
+    }
+    setError(caught instanceof QuizApiError ? caught.message : fallback);
+  };
 
   const startQuiz = async (enteredPassword: string, count: number) => {
     if (loading) return;
@@ -38,7 +51,7 @@ export function QuizPage() {
       setResult(null);
       setPhase("answering");
     } catch (caught) {
-      setError(caught instanceof QuizApiError ? caught.message : "問題の取得に失敗しました。");
+      handleApiError(caught, "問題の取得に失敗しました。");
     } finally {
       setLoading(false);
     }
@@ -57,7 +70,7 @@ export function QuizPage() {
       setPhase("result");
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (caught) {
-      setError(caught instanceof QuizApiError ? caught.message : "採点に失敗しました。");
+      handleApiError(caught, "採点に失敗しました。");
     } finally {
       setLoading(false);
     }

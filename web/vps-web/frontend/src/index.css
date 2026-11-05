@@ -39,6 +39,15 @@ h1 { margin-bottom: 18px; font-size: clamp(2rem, 5vw, 3.5rem); line-height: 1.12
 .primary-button:hover, .secondary-button:hover { filter: brightness(.97); transform: translateY(-1px); }
 .primary-button:disabled, .secondary-button:disabled { cursor: not-allowed; filter: grayscale(.35); opacity: .65; transform: none; }
 .button-link { display: inline-block; text-decoration: none; }
+.button-link:focus-visible, button:focus-visible { outline: 3px solid #5541c7; outline-offset: 4px; }
+.menu-title { font-size: 1.15rem; margin-bottom: 16px; }
+.home-menu { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.home-menu > * { display: grid; place-content: center; gap: 4px; min-height: 72px; padding: 15px 18px; }
+.home-menu > .home-auth-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding: 0; }
+.home-auth-actions > * { display: grid; place-content: center; min-width: 0; padding: 15px 12px; }
+.coming-soon { display: block; font-size: .72rem; }
+.home-error { margin-bottom: 24px; line-height: 1.7; overflow-wrap: anywhere; }
+.auth-success { margin: 0 0 24px; color: #258442; font-size: .9rem; line-height: 1.7; }
 
 .top-nav { width: min(100%, 760px); margin: 0 auto 18px; display: flex; align-items: center; justify-content: space-between; }
 .brand { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; color: white; background: #5a45da; font-weight: 900; text-decoration: none; }
