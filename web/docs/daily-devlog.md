@@ -2402,6 +2402,66 @@ CSRFの仕組みを学習するため、ローカル環境に検証用の悪意�
 - cookieが消えて、挑戦時にログインを求められたら成功
 - same_siteを"lax"に戻して同じくテストして、cookieが消えずに挑戦出来たら"lax"の動作確認終了
 
+#### VPS移行準備
+- codexに現在の状況からVPSデプロイする上で足りない事項をレビューしてもらい、対策を進める
+**リダイレクト先URLの変更**
+- 評価：最優先	localhost:5173固定のリダイレクト	本番URLへの切り替え
+- 移行に向けて`http://localhost:5173`にしていたリダイレクト先URLを環境変数に置き換えることで移行しやすくする
+`RedirectResponse(url="localhost:5173/?auth_result=allowed")`から
+`RedirectResponse(url=f"{FRONTEND_URL}/?auth_result=allowed")`に変更
+
+**セッション署名鍵の未設定チェックの追加**
+- 評価：高	セッション署名鍵の未設定チェック不足	起動時に必須設定を検証
+- app.add_middlewareの直前にifをつけてセッション署名鍵があるか調べてから行うようにする
+`if SECRET_COOKEY:`をつけたが、これではスペースだけの時はOKになってしまう
+```
+if not isinstance(SECRET_COOKEY, str) or not SECRET_COOKEY.strip():
+    raise RuntimeError("セッション署名鍵が設定されていません")
+```
+を追加して、空白時も止めるようにし、RuntimeErrorで実行エラーを起こすようにする
+- テスト
+```
+・鍵なし
+raise RuntimeError("セッション署名鍵が設定されていません")
+RuntimeError: セッション署名鍵が設定されていません
+
+・鍵空白
+raise RuntimeError("セッション署名鍵が設定されていません")
+RuntimeError: セッション署名鍵が設定されていません
+
+・ランダム文字列
+起動
+```
+
+**バックエンドの自動テスト**
+- 評価：高	バックエンドの自動テストが0件
+
+**認証失敗時の例外処理**
+- 評価：高	認証失敗時の例外処理
+- OAuthErrorとは別の例外が発生したとき、捕捉できずに500 Internal Server Errorになる
+- 署名が一致しない時のエラーを捕捉するJoseErrorを追加する
+- JoseErrorはJWS,JWT,JWEの署名検証、クレーム検証、復号処理に関するエラーに向けて設計された
+```
+from joserfc.errors import JoseError
+
+    except JoseError as e: #JoseErrorを追加
+        logger.warning("IDトークン検証エラー: %s", e.error)
+        raise HTTPException(
+            status_code=401,
+            detail="IDトークンの検証に失敗しました"
+        ) #401エラーとメッセージ
+```
+- `except`以下を`OAuthError`の下に追加
+‐ テスト
+```
+nonce改ざんエラーを再実行する
+(WARNING)2026-11-05 19:21:36,399-IDトークン検証エラー: invalid_claim
+```
+**CSRF対策強化**
+- 評価：高	管理API・ログアウトのCSRF対策
+- 多層防御技術を追加する
+- same_siteに加えて、標準ヘッダーによるorigin検証を追加する
+- 
 ### 設計・判断
 ### 学んだこと
 ### エラー・解決
