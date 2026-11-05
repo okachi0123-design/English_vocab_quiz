@@ -2461,7 +2461,42 @@ nonce改ざんエラーを再実行する
 - 評価：高	管理API・ログアウトのCSRF対策
 - 多層防御技術を追加する
 - same_siteに加えて、標準ヘッダーによるorigin検証を追加する
-- 
+- originやrefereはヘッダーに含まれる→ヘッダーからデータを受け取って照合
+- ヘッダーからのデータ取得は`request.headers.get` 参考[Starlette公式ドキュメント：Requests（Headers）](https://starlette.dev/requests/#headers)
+```
+origin=request.headers.get("origin")
+referer=request.headers.get("referer")
+```
+- ログイン時、開発者ツールのネットワークでrefererのURLがhttp://localhost:5173/だった→リクエスト元URLはフロントエンドのURL
+- ifでURLが違うときには弾く関数を作る
+- リクエストに対するフィルターとして使うので、起動時のチェックではなくリクエストに依存先として取り入れる
+- def check_origin()を作り、logoutなど必要なリクエストと関連付ける
+```
+from urllib.parse import urlsplit
+
+def origin_checker(FRONTEND_URL,request: Request):
+    origin = request.headers.get("origin")
+    referer = request.headers.get("referer")
+
+    if origin:
+        if origin == FRONTEND_URL:
+            return 1
+
+    elif referer:
+        parsed = urlsplit(referer)
+        referer_origin = f"{parsed.scheme}://{parsed.netloc}"
+
+        if referer_origin == FRONTEND_URL:
+            return 1
+
+    raise HTTPException(
+        status_code=403,
+        detail="不正な経路からのアクセスです"
+    )
+```
+- referer_originのリクエスト元URL指定は、リクエストをした時のURLなので`/quiz`など`/○○`が続くことがある→urlsplitでURLを分解し、オリジン部分だけを取り出してFRONTEND_URLと照合する
+- logoutの`login_checker`にifでresultが１かどうかのチェックを入れ忘れていたが、作動していているので、HTTPExceptionがあればreturnで判別する必要がないことが分かった
+- returnの数字を消して　`origin_check_result = Depends(origin_checker)`を追加した
 ### 設計・判断
 ### 学んだこと
 ### エラー・解決
