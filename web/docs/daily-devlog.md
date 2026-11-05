@@ -2362,3 +2362,47 @@ def logout(request: Request, login_check_result: int = Depends(login_checker)):
 ### エラー・解決
 ### 次回やること
 - 本番環境導入
+
+## 2026-11-05
+### 作業内容
+#### CSRFによるsamesiteの確認
+- CRSFの学習 [詳細](https://github.com/okachi0123-design/Security-Study-Log/blob/main/Web/CRSF.md)
+- codexでCSRF用の偽サイトを作って行う
+- 命令文
+```
+CSRFの仕組みを学習するため、ローカル環境に検証用の悪意あるWebサイトを作成してください。
+
+目的
+ログイン済みのクイズアプリに対して、別サイトからPOSTリクエストを送信し、SameSite=LaxによってセッションCookieが送信されないことを検証する。
+
+環境
+・クイズアプリ：`http://localhost:5173`
+・FastAPI：`http://localhost:8000`
+・攻撃対象：`POST http://localhost:8000/api/logout`
+・偽サイト：`http://127.0.0.1:9000`
+
+実装要件
+1. 偽サイトは作業用ディレクトリ(~/English_vocab_quiz/test.samesite)に作成する。
+2. Python標準ライブラリのHTTPサーバーなどで起動できるようにする。
+3. 偽サイトに「攻撃実行」ボタンを配置する。
+4. ボタンをクリックすると、HTMLフォームを使用してクイズアプリのログアウトAPIにPOSTリクエストを送信する。
+5. JavaScriptのfetchではなく、通常のHTMLフォームを使用する。
+6. 検証方法をREADMEに記載する。
+
+注意事項
+・既存のクイズアプリのコードは変更しない。
+・認証Cookieや秘密情報を収集・表示・保存しない。
+・外部サーバーへ通信しない。
+・すべてローカル環境で検証する。
+```
+**テスト実行**
+- same_siteを"none"にする ＊webサーバー再起動しないと設定反映されない
+- ログインして、開発者ツールのApplication→Cookiesで設定とcookieがあることを確認
+- 偽サイト：`http://127.0.0.1:9000`にアクセスして攻撃する
+- cookieが消えて、挑戦時にログインを求められたら成功
+- same_siteを"lax"に戻して同じくテストして、cookieが消えずに挑戦出来たら"lax"の動作確認終了
+
+### 設計・判断
+### 学んだこと
+### エラー・解決
+### 次回やること
