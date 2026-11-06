@@ -2508,7 +2508,12 @@ def origin_checker(FRONTEND_URL,request: Request):
 #### GitHub ActionsのCI/CD導入
 - CSRF対策のテストを始める前に、CI/CDのCIによるテストの自動化の仕組みを作る
 ##### GitHub Actionsの学習
-詳細は
+‐ [詳細、制作ログ](https://github.com/okachi0123-design/DevOps-Study-Log/blob/fef6d8f967507cccabafae5bdc862a314c15e10b/CI-CD/GitHub-Actions/GitHub-Actions.md)
+##### pytestの学習
+- codexに作らせたテストコードのチェックやリファクタリングを行うためにpytestの学習を行う
+- 各部品を自分で作りながら確認して、codexのものと比較する
+- [学習ログ](https://github.com/okachi0123-design/Python-study-log/blob/8132071a186f5a8e784870cbb5df6b70bd28e133/testing/pytest.md)
+- Pytest制作ログ
 
 ### 設計・判断
 ### 学んだこと
