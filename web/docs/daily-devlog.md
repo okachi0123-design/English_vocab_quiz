@@ -2501,3 +2501,16 @@ def origin_checker(FRONTEND_URL,request: Request):
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
+- CRSF対策のテスト
+
+## 2026-11-06
+### 作業内容
+#### GitHub ActionsのCI/CD導入
+- CSRF対策のテストを始める前に、CI/CDのCIによるテストの自動化の仕組みを作る
+##### GitHub Actionsの学習
+詳細は
+
+### 設計・判断
+### 学んだこと
+### エラー・解決
+### 次回やること
