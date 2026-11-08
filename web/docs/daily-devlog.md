@@ -2525,6 +2525,19 @@ def origin_checker(FRONTEND_URL,request: Request):
 #### テストコード制作
 - [詳細](https://github.com/okachi0123-design/Python-study-log/blob/8132071a186f5a8e784870cbb5df6b70bd28e133/testing/pytest.md)
 ### 設計・判断
+**`login_checker`の変更**
+- 今→if == 1でTrue、FalseはHTTPエラーで分けているが、`origin_checker`導入時に他がHTTPエラーならif == 1なしでもよいと気付いた
+- 動作に変わりないのでそのままにしていたが、ipytest制作時に`if == 1`のチェックを毎回する必要が出てきたため、`origin_checker`と同様の`return`で何も返さない使用に変更する
+- `if login_check_result == 1:`の削除
+- `login_check_result: int = Depends(login_checker)`の`int`指定削除
+- インシデント戻す
+- login_checker変更
+```
+if permission == True:
+    return
+```
+
+
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
