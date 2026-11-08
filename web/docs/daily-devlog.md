@@ -2511,7 +2511,7 @@ def origin_checker(FRONTEND_URL,request: Request):
 ‐ [詳細、制作ログ](https://github.com/okachi0123-design/DevOps-Study-Log/blob/fef6d8f967507cccabafae5bdc862a314c15e10b/CI-CD/GitHub-Actions/GitHub-Actions.md)
 ##### pytestの学習
 - codexに作らせたテストコードのチェックやリファクタリングを行うためにpytestの学習を行う
-- 各部品を自分で作りながら確認して、codexのものと比較する
+- 各部品を自分で作りながら確認して、codexのものと比較する　＊変更：codexに作らせたひな形の意味が分からなかったので、自分で作る
 - [学習ログ](https://github.com/okachi0123-design/Python-study-log/blob/8132071a186f5a8e784870cbb5df6b70bd28e133/testing/pytest.md)
 
 ### 設計・判断
@@ -2524,6 +2524,7 @@ def origin_checker(FRONTEND_URL,request: Request):
 ### 作業内容
 #### テストコード制作
 - [詳細](https://github.com/okachi0123-design/Python-study-log/blob/8132071a186f5a8e784870cbb5df6b70bd28e133/testing/pytest.md)
+- 作成できたものは随時 testsに追加
 ### 設計・判断
 **`login_checker`の変更**
 - 今→if == 1でTrue、FalseはHTTPエラーで分けているが、`origin_checker`導入時に他がHTTPエラーならif == 1なしでもよいと気付いた
@@ -2536,8 +2537,6 @@ def origin_checker(FRONTEND_URL,request: Request):
 if permission == True:
     return
 ```
-
-
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
