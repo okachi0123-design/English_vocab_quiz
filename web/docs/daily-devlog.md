@@ -2513,8 +2513,17 @@ def origin_checker(FRONTEND_URL,request: Request):
 - codexに作らせたテストコードのチェックやリファクタリングを行うためにpytestの学習を行う
 - 各部品を自分で作りながら確認して、codexのものと比較する
 - [学習ログ](https://github.com/okachi0123-design/Python-study-log/blob/8132071a186f5a8e784870cbb5df6b70bd28e133/testing/pytest.md)
-- Pytest制作ログ
 
+### 設計・判断
+### 学んだこと
+### エラー・解決
+### 次回やること
+- テストコード制作
+
+## 2026-11-08
+### 作業内容
+#### テストコード制作
+- [詳細](https://github.com/okachi0123-design/Python-study-log/blob/8132071a186f5a8e784870cbb5df6b70bd28e133/testing/pytest.md)
 ### 設計・判断
 ### 学んだこと
 ### エラー・解決
