@@ -2541,3 +2541,15 @@ if permission == True:
 ### エラー・解決
 ### 次回やること
 - テストコード続き
+
+## 2026-11-09
+### 作業内容
+#### 前回続き
+
+### 設計・判断
+- logoutの`RedirectResponse`のurlを変更
+- 変更前`(url=f"{FRONTEND_URL}:?status=logouted")`と:?で空のポートを指定しているみたいになっていた
+- 変更後`(url=f"{FRONTEND_URL}/?status=logouted")`
+### 学んだこと
+### エラー・解決
+### 次回やること
