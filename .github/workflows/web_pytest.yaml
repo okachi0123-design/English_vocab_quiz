@@ -24,3 +24,4 @@ jobs: #jobと指定
 
       - name: Run-Pytest #Pytest実行
         run: pytest web/vps-web/backend/tests
+        working-directory: web/vps-web/backend
