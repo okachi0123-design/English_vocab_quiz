@@ -11,8 +11,26 @@ jobs: #jobと指定
   test-backend: #ジョブ識別
     runs-on: ubuntu-latest #ジョブを動かす環境（ランナー）GitHub hosted runner←今回使用/Self hosted runner
     env:
-      DATABASE_URL: "db_url"
-      FRONTEND_URL: "frontend_url"
+      DATABASE_URL: "postgresql://testuser:testdbpass@localhost:5432/testdb"
+      FRONTEND_URL: "http://localhost:5173"
+      AUTH_CLIENT_ID: "test_client_id"
+      AUTH_CLIENT_SECRET: "test_client_secret"
+      SECRET_SESSION_KEY: "test_session_key"
+
+    services:
+      postgres: 
+        image: postgres:16
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testdbpass
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U testuser -d testdb"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout-repository #リポジトリのチェック
         uses: actions/checkout@v7 #チェックアウト用アクション
