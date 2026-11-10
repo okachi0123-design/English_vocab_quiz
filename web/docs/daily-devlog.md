@@ -2613,12 +2613,57 @@ env:
 - 詳細は[DevOps-Study-Log/CI-CD/GitHub-Actions]
 -  GitHub ActionsでPostgreSQLを起動するサービスコンテナを利用する
 -  コンテナ作成、環境変数の設定後pushでCI成功を確認
+
+#### warning対応
+```
+PytestRemovedIn10Warning: _pytest.python.CallSpec2 has been renamed to CallSpec.
+The CallSpec2 alias will be removed in pytest 10.
+Update imports to use CallSpec instead.
+```
+```
+MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+```
+```
+AuthlibDeprecationWarning: The httpx module is deprecated; please use httpx2 instead.
+```
+```
+PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the "fixture" caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to "function" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+```
+
+- 上記の４つのwarningがテストで示されているので、それぞれ対応する
+- PytestDeprecationWarning:：現在はイベントループのスコープが明示されておらず、将来的にデフォルト値が変わるため、設定をするべきという推奨　`vim pytest.ini`で設定ファイルを開いて`asyncio_default_fixture_loop_scope = function`を追記
+- MovedIn20Warning：`declarative_base()`のライブラリを`sqlalchemy.orm`ライブラリの`declarative_base()`を使うようにimportを変更する
+- AuthlibDeprecationWarning：authlibが使うhttpクライアントは普通httpx2を使うけど、httpxしか環境になかったのでそちらを使っているから警告が発生している。httpx2を導入する
+- https導入後requires.txtにも導入
+- PytestRemovedIn10Warning:AnyIO内部で、pytestの非推奨API CallSpec2 を使用していた
+
+```
+python -m pip install --upgrade anyio
+python -m pip show anyio 
+```
+
+- でアップデート後require.txtに追加
+- warningが消えていることを確認
+
+#### CSRFテスト
+- `origin_checker`が正しく動いているか確認
+- pytestで関数自体は動いていることが確認できたので、実際に正常パターンと異常パターンの２種類だけチェックする
+- テスト項目↓
+- 通常状態で挑戦　ログアウト成功
+- `same_site`の確認で使ったログアウトリクエストを送るhtmlを再利用した別originからのリクエスト
+- `localhost:9000`からリクエストを送信するように変更
+- 結果：{"detail":"不正な経路からのアクセスです"}　と`origin_checker`が動いてログインが維持されている
+- ＊`same_site = "lax"`はスキームとホスト名で判別するので、`localhost:9000`は同一サイトと判別される　一方、`origin`はスキーム、ホスト名、ポート番号で判別するので別のオリジンとして拒否できる　また、`refrere`は`origin`にパスやクエリパラメータを加えたものがあるが、関数内で `origin部`として切り分けているのでこちらも同様に判断できると考えられる
 ### 設計・判断
 **origin_checkerの修正**
 - origin_checker() の引数から FRONTEND_URL を削除。
 - FRONTEND_URL は環境変数から取得したグローバル変数を参照するように変更。
 - 修正理由： FastAPIのDepends()がFRONTEND_URLをリクエストのクエリパラメータとして解釈し、422エラーになる可能性があったため。
 - テストコードも引数の変更に合わせて修正。
+
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
+- VPSデプロイ
