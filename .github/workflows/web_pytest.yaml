@@ -22,6 +22,7 @@ jobs: #jobと指定
       - name: Install-Dependencies #requirements.txtのインストール
         run: pip install -r web/vps-web/backend/requirements.txt #実行コード
 
-      - name: Run-Pytest #Pytest実行
-        run: pytest web/vps-web/backend/tests
+      - name: Run pytest
         working-directory: web/vps-web/backend
+        run: python -m pytest tests/ -v
+        
