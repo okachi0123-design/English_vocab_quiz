@@ -2402,7 +2402,154 @@ CSRFの仕組みを学習するため、ローカル環境に検証用の悪意�
 - cookieが消えて、挑戦時にログインを求められたら成功
 - same_siteを"lax"に戻して同じくテストして、cookieが消えずに挑戦出来たら"lax"の動作確認終了
 
+#### VPS移行準備
+- codexに現在の状況からVPSデプロイする上で足りない事項をレビューしてもらい、対策を進める
+**リダイレクト先URLの変更**
+- 評価：最優先	localhost:5173固定のリダイレクト	本番URLへの切り替え
+- 移行に向けて`http://localhost:5173`にしていたリダイレクト先URLを環境変数に置き換えることで移行しやすくする
+`RedirectResponse(url="localhost:5173/?auth_result=allowed")`から
+`RedirectResponse(url=f"{FRONTEND_URL}/?auth_result=allowed")`に変更
+
+**セッション署名鍵の未設定チェックの追加**
+- 評価：高	セッション署名鍵の未設定チェック不足	起動時に必須設定を検証
+- app.add_middlewareの直前にifをつけてセッション署名鍵があるか調べてから行うようにする
+`if SECRET_COOKEY:`をつけたが、これではスペースだけの時はOKになってしまう
+```
+if not isinstance(SECRET_COOKEY, str) or not SECRET_COOKEY.strip():
+    raise RuntimeError("セッション署名鍵が設定されていません")
+```
+を追加して、空白時も止めるようにし、RuntimeErrorで実行エラーを起こすようにする
+- テスト
+```
+・鍵なし
+raise RuntimeError("セッション署名鍵が設定されていません")
+RuntimeError: セッション署名鍵が設定されていません
+
+・鍵空白
+raise RuntimeError("セッション署名鍵が設定されていません")
+RuntimeError: セッション署名鍵が設定されていません
+
+・ランダム文字列
+起動
+```
+
+**バックエンドの自動テスト**
+- 評価：高	バックエンドの自動テストが0件
+
+**認証失敗時の例外処理**
+- 評価：高	認証失敗時の例外処理
+- OAuthErrorとは別の例外が発生したとき、捕捉できずに500 Internal Server Errorになる
+- 署名が一致しない時のエラーを捕捉するJoseErrorを追加する
+- JoseErrorはJWS,JWT,JWEの署名検証、クレーム検証、復号処理に関するエラーに向けて設計された
+```
+from joserfc.errors import JoseError
+
+    except JoseError as e: #JoseErrorを追加
+        logger.warning("IDトークン検証エラー: %s", e.error)
+        raise HTTPException(
+            status_code=401,
+            detail="IDトークンの検証に失敗しました"
+        ) #401エラーとメッセージ
+```
+- `except`以下を`OAuthError`の下に追加
+‐ テスト
+```
+nonce改ざんエラーを再実行する
+(WARNING)2026-11-05 19:21:36,399-IDトークン検証エラー: invalid_claim
+```
+**CSRF対策強化**
+- 評価：高	管理API・ログアウトのCSRF対策
+- 多層防御技術を追加する
+- same_siteに加えて、標準ヘッダーによるorigin検証を追加する
+- originやrefereはヘッダーに含まれる→ヘッダーからデータを受け取って照合
+- ヘッダーからのデータ取得は`request.headers.get` 参考[Starlette公式ドキュメント：Requests（Headers）](https://starlette.dev/requests/#headers)
+```
+origin=request.headers.get("origin")
+referer=request.headers.get("referer")
+```
+- ログイン時、開発者ツールのネットワークでrefererのURLがhttp://localhost:5173/だった→リクエスト元URLはフロントエンドのURL
+- ifでURLが違うときには弾く関数を作る
+- リクエストに対するフィルターとして使うので、起動時のチェックではなくリクエストに依存先として取り入れる
+- def check_origin()を作り、logoutなど必要なリクエストと関連付ける
+```
+from urllib.parse import urlsplit
+
+def origin_checker(FRONTEND_URL,request: Request):
+    origin = request.headers.get("origin")
+    referer = request.headers.get("referer")
+
+    if origin:
+        if origin == FRONTEND_URL:
+            return 1
+
+    elif referer:
+        parsed = urlsplit(referer)
+        referer_origin = f"{parsed.scheme}://{parsed.netloc}"
+
+        if referer_origin == FRONTEND_URL:
+            return 1
+
+    raise HTTPException(
+        status_code=403,
+        detail="不正な経路からのアクセスです"
+    )
+```
+- referer_originのリクエスト元URL指定は、リクエストをした時のURLなので`/quiz`など`/○○`が続くことがある→urlsplitでURLを分解し、オリジン部分だけを取り出してFRONTEND_URLと照合する
+- logoutの`login_checker`にifでresultが１かどうかのチェックを入れ忘れていたが、作動していているので、HTTPExceptionがあればreturnで判別する必要がないことが分かった
+- returnの数字を消して　`origin_check_result = Depends(origin_checker)`を追加した
 ### 設計・判断
+### 学んだこと
+### エラー・解決
+### 次回やること
+- CRSF対策のテスト
+
+## 2026-11-06
+### 作業内容
+#### GitHub ActionsのCI/CD導入
+- CSRF対策のテストを始める前に、CI/CDのCIによるテストの自動化の仕組みを作る
+##### GitHub Actionsの学習
+‐ [詳細、制作ログ](https://github.com/okachi0123-design/DevOps-Study-Log/blob/fef6d8f967507cccabafae5bdc862a314c15e10b/CI-CD/GitHub-Actions/GitHub-Actions.md)
+##### pytestの学習
+- codexに作らせたテストコードのチェックやリファクタリングを行うためにpytestの学習を行う
+- 各部品を自分で作りながら確認して、codexのものと比較する　＊変更：codexに作らせたひな形の意味が分からなかったので、自分で作る
+- [学習ログ](https://github.com/okachi0123-design/Python-study-log/blob/8132071a186f5a8e784870cbb5df6b70bd28e133/testing/pytest.md)
+
+### 設計・判断
+### 学んだこと
+### エラー・解決
+### 次回やること
+- テストコード制作
+
+## 2026-11-08
+### 作業内容
+#### テストコード制作
+- [詳細](https://github.com/okachi0123-design/Python-study-log/blob/8132071a186f5a8e784870cbb5df6b70bd28e133/testing/pytest.md)
+- 作成できたものは随時 testsに追加
+### 設計・判断
+**`login_checker`の変更**
+- 今→if == 1でTrue、FalseはHTTPエラーで分けているが、`origin_checker`導入時に他がHTTPエラーならif == 1なしでもよいと気付いた
+- 動作に変わりないのでそのままにしていたが、ipytest制作時に`if == 1`のチェックを毎回する必要が出てきたため、`origin_checker`と同様の`return`で何も返さない使用に変更する
+- `if login_check_result == 1:`の削除
+- `login_check_result: int = Depends(login_checker)`の`int`指定削除
+- インシデント戻す
+- login_checker変更
+```
+if permission == True:
+    return
+```
+### 学んだこと
+### エラー・解決
+### 次回やること
+- テストコード続き
+
+## 2026-11-09
+### 作業内容
+#### 前回続き
+
+### 設計・判断
+- logoutの`RedirectResponse`のurlを変更
+- 変更前`(url=f"{FRONTEND_URL}:?status=logouted")`と:?で空のポートを指定しているみたいになっていた
+- 変更後`(url=f"{FRONTEND_URL}/?status=logouted")`
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
