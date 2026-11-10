@@ -1,0 +1,26 @@
+name: Run-Web-Pytest #ワークフローの名前
+
+on: #トリガーを指定するよ
+  push: #指定されたトリガー（push）
+    branches: ["main"] #（フィルター）main branchのイベントに限定
+
+  pull_request: #（pull request）
+    branches: ["main"] #（フィルター）main branchのイベントに限定
+
+jobs: #jobと指定
+  test-backend: #ジョブ識別
+    runs-on: ubuntu-latest #ジョブを動かす環境（ランナー）GitHub hosted runner←今回使用/Self hosted runner
+    steps:
+      - name: Checkout-repository #リポジトリのチェック
+        uses: actions/checkout@v7 #チェックアウト用アクション
+
+      - name: Setup-Python #Python環境のセットアップ（バージョン指定したい時）
+        uses: actions/setup-python@v7 #actions/setup-python
+        with:
+          python-version: 3.12 #バージョン指定
+
+      - name: Install-Dependencies #requirements.txtのインストール
+        run: pip install -r web/vps-web/backend/requirements.txt #実行コード
+
+      - name: Run-Pytest #Pytest実行
+        run: pytest web/vps-web/backend/tests
