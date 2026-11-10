@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 import os
 from fastapi import Header
 from pass_auth import password_auth
-from fastapi.middleware.cors import CORSMiddleware 
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
 from data_change_auth import dcpassword_auth
 from starlette.requests import Request
@@ -47,7 +47,7 @@ app.add_middleware(
 
 if not isinstance(SECRET_COOKEY, str) or not SECRET_COOKEY.strip():
     raise RuntimeError("セッション署名鍵が設定されていません")
-else:   
+else:
     app.add_middleware(
         SessionMiddleware,
         secret_key=SECRET_COOKEY,
@@ -55,7 +55,7 @@ else:
         same_site="lax", #クロスサイトリクエストを防ぐ
         max_age=3600 #有効期限（秒）
         )
-  
+
 
 
 header_scheme = APIKeyHeader(
@@ -107,7 +107,7 @@ def authorize_data_change(key: str = Depends(header_scheme)):
 
 sql_dbmodels.Base.metadata.create_all(bind=engine)
 
-  
+
 
 
 questions = [
@@ -123,10 +123,10 @@ def check_password(enterd_password: str = Header()):
 
 def get_db():
     db = SessionLocal()
-    try: 
-        yield db  
-    finally: 
-        db.close() 
+    try:
+        yield db
+    finally:
+        db.close()
 
 def init_db():
     db = SessionLocal()
@@ -147,7 +147,7 @@ def login_checker(request: Request, db: Session = Depends(get_db)):
     if uid:
         permission = db.query(sql_dbmodels.SQLUsers.is_allowed).filter(sql_dbmodels.SQLUsers.uid == uid).scalar()
         if permission == True:
-            return 
+            return
         elif permission == False:
             raise HTTPException(
                         status_code=403,
@@ -158,18 +158,18 @@ def login_checker(request: Request, db: Session = Depends(get_db)):
                 status_code=401,
                 detail="ユーザー情報が登録されていません"
                 )
-    else: 
+    else:
         raise HTTPException(
                 status_code=401,
                 detail="ログインしてください"
                 )
-        
+
 
 
 
 @app.get("/api/quiz")
 def prepare_questions(attempt_count: int, db: Session = Depends(get_db), result_auth: int = Depends(check_password), login_check_result = Depends(login_checker)):
-    if attempt_count >= 100: 
+    if attempt_count >= 100:
         return "問題数が多すぎます"
     elif attempt_count <= 0:
         return "１つ以上を選択してください"
@@ -181,8 +181,8 @@ def prepare_questions(attempt_count: int, db: Session = Depends(get_db), result_
         else:
             return "パスワードが正しくありません"
 
-   
-   
+
+
 
 @app.post("/api/quiz")
 def check_and_counter(answers: list[Answer], db: Session = Depends(get_db), result_auth: int = Depends(check_password), login_check_result = Depends(login_checker)):
@@ -190,7 +190,7 @@ def check_and_counter(answers: list[Answer], db: Session = Depends(get_db), resu
         score = 0
         attempt = 0
         results = []
-    
+
         answer_ids = []
         for answer in answers:
             answer_id = answer.id
@@ -201,7 +201,7 @@ def check_and_counter(answers: list[Answer], db: Session = Depends(get_db), resu
 
         for answer in answers:
             is_correct = ask_question(answer,solutions)
-            if is_correct == 1:  
+            if is_correct == 1:
                 results.append({
                     "result": "〇"
                 })
@@ -214,15 +214,15 @@ def check_and_counter(answers: list[Answer], db: Session = Depends(get_db), resu
                     "result": "✕",
                     "answer": correct_answer
                 })
-                
+
             score = score + is_correct
             attempt = attempt + 1
 
             percentage = result(score, attempt)
             percentage = round(percentage, 2)
-        
+
             result_message = message(percentage)
-        
+
         return{
             "results": results,
             "attempt": attempt,
@@ -297,13 +297,13 @@ def delete_question(delete_ids: list[int], db: Session = Depends(get_db), result
 
     else:
         return "パスワードが正しくありません"
-    
+
 
 
 
 @app.get("/api/login") #ログイン時に認可コード送り先を取得すると同時に、認可サーバーにリダイレクトする関数
 async def login(request: Request): #/loginアクセス時の非同期処理
-    url = request.url_for('auth') # 認可コードの受け取り先（redirect_url）を取得 
+    url = request.url_for('auth') # 認可コードの受け取り先（redirect_url）を取得
     return await oauth.google.authorize_redirect(request, url)# Googleの認可サーバーへリダイレクト
 
 @app.get('/api/auth') #認可コード受け取り場所 /auth
@@ -324,7 +324,7 @@ async def auth(request: Request, db: Session = Depends(get_db)): #認可コー�
             detail="IDトークンの検証に失敗しました"
         ) #401エラーとメッセージ
 
-    user = token.get('userinfo')    
+    user = token.get('userinfo')
     user = token.get('userinfo') #トークンの取得結果からuserinfoを取り出し、変数userに保存
     if user: #userあれば
         sub = user.get('sub')
@@ -334,21 +334,21 @@ async def auth(request: Request, db: Session = Depends(get_db)): #認可コー�
                 if user_data.is_allowed == True:
                     request.session['uid'] = user_data.uid #user情報からuidを見つけて、セッションに保存
                     logger.info("認証成功 uid=%s", user_data.uid)
-                    return RedirectResponse(url=f"{FRONTEND_URL}/?auth_result=allowed") 
+                    return RedirectResponse(url=f"{FRONTEND_URL}/?auth_result=allowed")
                 else:
                     logger.info("認証済未許可 uid=%s", user_data.uid)
-                    return RedirectResponse(url=f"{FRONTEND_URL}/?auth_result=denied") 
+                    return RedirectResponse(url=f"{FRONTEND_URL}/?auth_result=denied")
             else:
                 db.add(sql_dbmodels.SQLUsers(sub=sub, is_allowed=False))
                 db.commit()
                 added_data = identify_user(sub, db)
                 logger.info("新規登録 uid=%s", added_data.uid)
-                return RedirectResponse(url=f"{FRONTEND_URL}/?auth_result=requested") 
+                return RedirectResponse(url=f"{FRONTEND_URL}/?auth_result=requested")
         else:
             logger.warning("sub取得失敗")
-            return RedirectResponse(url=f"{FRONTEND_URL}/?auth_result=data_failed") 
+            return RedirectResponse(url=f"{FRONTEND_URL}/?auth_result=data_failed")
     logger.warning("Googleユーザー取得失敗")
-    return RedirectResponse(url=f"{FRONTEND_URL}/?auth_result=google_request_failed") 
+    return RedirectResponse(url=f"{FRONTEND_URL}/?auth_result=google_request_failed")
     #HTTPステータス（401エラー）とエラーメッセージ
 
 @app.post('/api/logout')

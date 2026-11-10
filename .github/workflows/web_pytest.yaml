@@ -10,6 +10,9 @@ on: #トリガーを指定するよ
 jobs: #jobと指定
   test-backend: #ジョブ識別
     runs-on: ubuntu-latest #ジョブを動かす環境（ランナー）GitHub hosted runner←今回使用/Self hosted runner
+    env:
+      DATABASE_URL: "db_url"
+      FRONTEND_URL: "frontend_url"
     steps:
       - name: Checkout-repository #リポジトリのチェック
         uses: actions/checkout@v7 #チェックアウト用アクション
