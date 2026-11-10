@@ -2553,3 +2553,72 @@ if permission == True:
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
+
+## 2026-11-10
+### 作業内容
+#### テストコード制作終了
+- 以下のテストコードを作成
+```
+test_prepare_questions.py:挑戦数、パスワードチェック
+
+test_get_questions.py:問題取得
+
+test_auth.py:Google OIDC認証
+
+test_login.py:Googleログイン開始処理
+
+test_logout.py:ログアウト・セッション削除
+
+test_login_checker.py:ログイン・認可チェック
+
+test_origin_checker.py:Origin・Refererのチェック
+```
+#### GitHub actionsのCI導入
+- reqirement.txtの用意`python -m pip freeze > requirements.txt`
+- 変更箇所、テストコード、.githubのpush
+- GitHub Actionsのエラー発生
+```
+_______________ ERROR collecting tests/test_prepare_questions.py _______________
+ImportError while importing test module '/home/runner/work/English_vocab_quiz/English_vocab_quiz/web/vps-web/backend/tests/test_prepare_questions.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+web/vps-web/backend/tests/test_prepare_questions.py:1: in <module>
+    import main
+E   ModuleNotFoundError: No module named 'main'
+```
+- テスト実行時にGitHub Actionsがmainを見つけられずにエラーが起きた
+- `working-directory: web/vps-web/backend`でテストを実行するディレクトリを指定する
+```
+run: pytest web/vps-web/backend/tests
+working-directory: web/vps-web/backend
+```
+- 修正後、pytestがworking-directoryからさらにweb/vps-web/backend/testsまで潜って実行をしようとするエラーが起きた
+-  run: python -m pytest tests/ -vに変更して、pytestがworking-directoryで実行されるように変更した
+```
+- name: Run pytest
+  working-directory: web/vps-web/backend
+  run: python -m pytest tests/ -v
+```
+- 修正後、再度エラー　`sqlalchemy.exc.ArgumentError:Expected string or URL object, got None`
+- main.py内でDB接続などを行う関数を実行するようにしているが、githubの方には.envを導入していないので、main.pyのimport時にDBへのURLなどを読み取れずにエラーが起きた
+- runs-on: ubuntu-latestの下に↓を追加
+```
+env:
+  DATABASE_URL: "db_url"
+  FRONTEND_URL: "frontend_url"
+```
+- 再度エラー　`Could not parse SQLAlchemy URL from given URL string`
+- URLの形式が正しくないので、SQLAlchemyが解釈できない
+- GitHub Actionsの実行中だけ、テスト用PostgreSQLをDockerコンテナで起動する方法を試す
+- 詳細は[DevOps-Study-Log/CI-CD/GitHub-Actions]
+-  GitHub ActionsでPostgreSQLを起動するサービスコンテナを利用する
+-  コンテナ作成、環境変数の設定後pushでCI成功を確認
+### 設計・判断
+**origin_checkerの修正**
+- origin_checker() の引数から FRONTEND_URL を削除。
+- FRONTEND_URL は環境変数から取得したグローバル変数を参照するように変更。
+- 修正理由： FastAPIのDepends()がFRONTEND_URLをリクエストのクエリパラメータとして解釈し、422エラーになる可能性があったため。
+- テストコードも引数の変更に合わせて修正。
+### 学んだこと
+### エラー・解決
+### 次回やること
