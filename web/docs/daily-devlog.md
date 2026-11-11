@@ -2697,7 +2697,7 @@ sudo -u postgres pg_dump -Fc -d english_quiz > ~/backups/english_quiz_before_dep
 ##### ソースコードの調整
 - 本番環境ように設定を変更しやすいように、`http://localhost:5173`を環境変数に統一する
 `allow_origins=[FRONTEND_URL],`に変更
-##### VPSデプロイ
+#### VPSデプロイ
 - git pullで新環境を導入
 ‐ 本番環境用に設定変更
 ```
@@ -2737,8 +2737,58 @@ proxy_set_header X-Forwarded-Proto $scheme;：通信プロトコル（HTTP/HTTPS
 - `/etc/nginx/sites-available/webquiz`の`location /api`内に追加する
 - `sudo nginx -t`で設定の構文チェックを行い、`sudo systemctl reload nginx`で反映
 - 参考： [Integrating Google Authentication with FastAPI: A Step-by-Step Guide（FutureSmart AI）](https://blog.futuresmart.ai/integrating-google-authentication-with-fastapi-a-step-by-step-guide)
-
-
+---
+**VPSデプロイ**
+- `.env`を`/opt`配下にcp,権限を640に変更
+- `ls -la`を本番用と開発用dirで実行して確認 更新時刻やサイズが異なるファイルを見つけて変更箇所を絞る
+```
+main.py	
+models.py	
+sql_dbmodels.py	
+requirements.txt
+auth_conf.py	
+identify_user.py
+.env_example
+pytest.ini
+test.py
+```
+- `README,.env,.venv`を含めなければこれらが変更されている
+- その内上の６つが本番環境でも使われるファイルなのでこれらをcpする
+- 権限を640に変更して確認する
+- `requirements.txt`を使用して、`/opt/webquiz/.venv`の既存の仮想環境に、必要なライブラリをインストール・更新
+`sudo /opt/webquiz/.venv/bin/python3 -m pip install  -r /opt/webquiz/requirements.txt`
+- 更新したソースコードを反映するため、systemdでFastAPIサービスを再起動 `sudo systemctl restart webquiz.service`
+- `sudo -u postgres psql -d english_quiz -c '\dt'`でテーブルが追加されてるか確認
+- `sudo -u postgres psql -d english_quiz -c '\d webquiz_users'`でテーブル形式を確認
+---
+**デプロイ後チェック**
+- ブラウザから`https://my-webquiz.duckdns.org/api/login`に直接アクセスしてログインできるか確認
+- ログイン処理成功
+- `sudo -u postgres psql -d english_quiz -c "SELECT * FROM webquiz_users ORDER BY uid;"`でテーブルに追加されているか確認
+- `sudo -u postgres psql -d english_quiz -c "UPDATE webquiz_users SET is_allowed = TRUE WHERE uid = 1;"`で利用許可
+- URLのリダイレクトとクエリパラメータを確認
+---
+**フロントエンドのデプロイ**
+- 前回と同様に開発側で作って転送する
+```
+npm ci　で依存ライブラリをインストール
+npm run build　でビルド
+scpで転送
+sudo cp -r dist/* /var/www/webquiz でフロントエンドの適用
+```
+#### デプロイ後チェック
+- `https://my-webquiz.duckdns.org`に接続して確認
+- ログイン後、旧バージョンのフロントエンドに変わるエラー発生
+- `ctrl+shift+r`で治るが、毎回押さなければ治らない→キャッシュの問題が継続
+- Nginxのキャッシュが新しいフロントエンドを認識していない
+- SPAのサーバーブロックにキャッシュコントロールを追加して、キャッシュ再利用時に更新確認させるように設定
+```
+location = /index.html {
+    add_header Cache-Control "no-cache, must-revalidate" always;
+}
+```
+- テストしたが同じエラー　ブラウザの開発者画面でdisable cacheを有効にし再読み込み、解除してさらに再読み込みで修正完了→ブラウザ側の古いキャッシュが問題
+- 修正後　再度クイズの挑戦・採点・ログアウト・再ログイン再度を確認し、デプロイ完了
 ### 設計・判断
 - **アカウント切り替え時のセッション管理**：許可済みアカウントAから未許可アカウントBに切り替えた際、以前の`uid`がセッションに残り、Aの権限でAPIを利用できてしまう可能性があるため、修正する
 - Googleの認証・トークン検証成功後、利用許可を判定する前に`request.session.pop("uid", None)`で元々セッションに保存していた`uid`を削除する。
