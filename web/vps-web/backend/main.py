@@ -319,6 +319,8 @@ async def auth(request: Request, db: Session = Depends(get_db)): #認可コー�
             status_code=401,
             detail="IDトークンの検証に失敗しました"
         ) #401エラーとメッセージ
+
+    request.session.pop("uid", None)
     user = token.get('userinfo') #トークンの取得結果からuserinfoを取り出し、変数userに保存
     if user: #userあれば
         sub = user.get('sub')
@@ -346,6 +348,6 @@ async def auth(request: Request, db: Session = Depends(get_db)): #認可コー�
     #HTTPステータス（401エラー）とエラーメッセージ
 
 @app.post('/api/logout')
-def logout(request: Request, login_check_result = Depends(login_checker),origin_check_result = Depends(origin_checker)):
+def logout(request: Request, origin_check_result = Depends(origin_checker)):
         request.session.clear()
         return RedirectResponse(url=f"{FRONTEND_URL}/?status=logouted")
