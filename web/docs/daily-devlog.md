@@ -2667,3 +2667,101 @@ python -m pip show anyio
 ### エラー・解決
 ### 次回やること
 - VPSデプロイ
+
+## 2026-11-11
+### 作業内容
+#### VPSデプロイ前準備
+##### 既存システムの確認
+##### バックアップ
+- バックアップ用ディレクトリを作成
+```
+mkdir -p ~/backups
+chmod 700 ~/backups
+```
+- `umask 077`で作るこれからバックアップファイル,ディレクトリの権限を設定
+- バックアップ
+```
+sudo -u postgres pg_dump -Fc -d english_quiz > ~/backups/english_quiz_before_deploy.dump
+```
+- バックアップが成功しているか確認（テーブル一覧など表示で成功）
+```
+ pg_restore -l ~/backups/english_quiz_before_deploy.dump
+```
+- 既存システムのディレクトリや設定ファイルをtar,gzでまとめて圧縮して保存
+`sudo tar -czf ~/backups/webquiz_app_before_deploy.tar.gz -C / opt/webquiz var/www/webquiz etc/nginx/sites-available/webquiz etc/nginx/sites-enabled/webquiz`
+- systemdサービスを保存
+`sudo cp /etc/systemd/system/webquiz.service ~/backups/webquiz.service.before_deploy`
+- 権限を変更 umaskはsudoで作った時はsudo側のumaskが適用されるので事前設定したようにならない
+` sudo chmod 600 ~/backups/webquiz_app_before_deploy.tar.gz ~/backups/webquiz.service.before_deploy`
+
+##### ソースコードの調整
+- 本番環境ように設定を変更しやすいように、`http://localhost:5173`を環境変数に統一する
+`allow_origins=[FRONTEND_URL],`に変更
+##### VPSデプロイ
+- git pullで新環境を導入
+‐ 本番環境用に設定変更
+```
+やること
+・環境変数設定
+・認証用DBテーブルの作成
+・リダイレクトURL設定などソースコードの調整
+・Google Cloud Console側のリダイレクトURIの設定
+・Nginx,HTTPSなど既存サービス設定との連携
+```
+- 環境変数設定　開発用dir配下の.envを編集して/opt配下の.envにcpする
+- 新しくOAuthクライアントを取得して`AUTH_CLIENT_ID=``AUTH_CLIENT_SECRET=`を設定する
+- Google Auth Platform のクライアント/クライアント作成でリダイレクトURIに`https://my-webquiz.duckdns.org/api/auth`を設定する
+- クライアントID,シークレットを取得してenvに保存
+- `python3 -c 'import secrets; print(secrets.token_urlsafe(48))'`でランダムパスワードを生成して、セッション署名キーに登録
+- フロントエンドのURLを`FRONTEND_URL=https://my-webquiz.duckdns.org`に設定
+---
+- 認証用DBの設定
+- なければ自動で作られる設定になっているので、DBのモデル設定などを確認
+---
+- ソースコードの調整
+- ` 'redirect_url': 'http://localhost:8000/api/auth',`の削除　login処理の時点で`/api/auth`の関数'auth'にリダイレクトされる設定になっているので、ここをあえて本番用URLに書き換える必要がない　ローカルでも削除
+- アカウント切り替え時に旧uidが残る問題、許可取り消し後にログアウトできない問題の解消↓設計・判断
+- 非認可別アカウントでの再ログイン時にクイズ挑戦が出来ず、falseに変えた後もログアウトできることを確認
+- aud検証の追加　現状の設計ではIDトークンがどのOAuthクライアント向けに発行されたかを判別できず、別のアプリに向けたトークンを受け取ってしまう可能性がある　そのため、宛先が書かれたaudと比較することで判別する仕組みを追加する　↓設計・判断 
+- pull
+---
+- Nginxの設定
+- proxy_set_headerでホスト名、プロトコルの指定を行う必要がある
+```
+proxy_set_headerで、クライアントがアクセスしたホスト名と通信プロトコルをFastAPIに伝える。
+proxy_set_header Host $host;：ホスト名を転送する。
+proxy_set_header X-Forwarded-Proto $scheme;：通信プロトコル（HTTP/HTTPS）を転送する。
+```
+- FastAPIの`request.url_for("auth")`がリダイレクトURIを生成する際に、この指定が無ければFastAPI上である`127.0.0.1:8000`の`/api/auth`にしてしまう可能性や、`http`のURIを提示してしまう可能性がある
+- `/etc/nginx/sites-available/webquiz`の`location /api`内に追加する
+- `sudo nginx -t`で設定の構文チェックを行い、`sudo systemctl reload nginx`で反映
+- 参考： [Integrating Google Authentication with FastAPI: A Step-by-Step Guide（FutureSmart AI）](https://blog.futuresmart.ai/integrating-google-authentication-with-fastapi-a-step-by-step-guide)
+
+
+### 設計・判断
+- **アカウント切り替え時のセッション管理**：許可済みアカウントAから未許可アカウントBに切り替えた際、以前の`uid`がセッションに残り、Aの権限でAPIを利用できてしまう可能性があるため、修正する
+- Googleの認証・トークン検証成功後、利用許可を判定する前に`request.session.pop("uid", None)`で元々セッションに保存していた`uid`を削除する。
+- 新しいアカウントの認証と利用許可が成功した場合のみ、新しい`uid`を保存する。
+- なしだと非認可別アカウントで再ログインした時にクイズを挑戦できるが、設定した後はできなくなったのでテスト成功
+- **ログアウト時の権限チェック**：利用許可を取り消されたユーザーは`login_checker`によってログアウトできなくなるため、修正する
+- ログアウト処理から`Depends(login_checker)`を削除し、利用許可の状態に関係なくセッションを削除できるようにする。
+- falseに変えた後もログインを確認
+- **IDトークンのaud検証の追加**
+- `aud`は、IDトークンがどのOAuthクライアント向けに発行されたかを示す
+- AuthlibによるIDトークンの検証に加え、`aud`が自身の`CLIENT_ID`と一致することを明示的に確認する
+- `aud`が異なる場合、他のアプリケーション向けのIDトークンを受け入れないようにHTTP 401を返す。
+- トークン取得後に以下のif文を追加
+```
+if not user or user.get("aud") != CLIENT_ID:
+    raise HTTPException(
+        status_code=401,
+        detail="IDトークンの検証に失敗しました"
+    )
+```
+
+- **動作確認**
+  - 正しい`aud`の場合は認証処理を継続する。
+  - 異なる`aud`、または`userinfo`が存在しない場合はHTTP 401を返すことをpytestで確認する。
+### 学んだこと
+### エラー・解決
+### 次回やること
