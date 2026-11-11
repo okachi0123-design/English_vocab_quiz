@@ -37,10 +37,7 @@ FRONTEND_URL = os.environ["FRONTEND_URL"]
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=[FRONTEND_URL],
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "enterd-password", "data-change-key"],
 )
@@ -71,7 +68,7 @@ oauth.register(
     client_secret = CLIENT_SECRET,
     client_kwargs={
         'scope': 'email openid profile',
-        'redirect_url': 'http://localhost:8000/auth',
+        'redirect_url': 'http://localhost:8000/api/auth',
         'prompt': 'select_account',
         "code_challenge_method": "S256",
     }
@@ -323,8 +320,6 @@ async def auth(request: Request, db: Session = Depends(get_db)): #認可コー�
             status_code=401,
             detail="IDトークンの検証に失敗しました"
         ) #401エラーとメッセージ
-
-    user = token.get('userinfo')
     user = token.get('userinfo') #トークンの取得結果からuserinfoを取り出し、変数userに保存
     if user: #userあれば
         sub = user.get('sub')
