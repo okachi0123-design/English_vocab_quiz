@@ -2722,7 +2722,8 @@ sudo -u postgres pg_dump -Fc -d english_quiz > ~/backups/english_quiz_before_dep
 - ` 'redirect_url': 'http://localhost:8000/api/auth',`の削除　login処理の時点で`/api/auth`の関数'auth'にリダイレクトされる設定になっているので、ここをあえて本番用URLに書き換える必要がない　ローカルでも削除
 - アカウント切り替え時に旧uidが残る問題、許可取り消し後にログアウトできない問題の解消↓設計・判断
 - 非認可別アカウントでの再ログイン時にクイズ挑戦が出来ず、falseに変えた後もログアウトできることを確認
-- aud検証の追加　現状の設計ではIDトークンがどのOAuthクライアント向けに発行されたかを判別できず、別のアプリに向けたトークンを受け取ってしまう可能性がある　そのため、宛先が書かれたaudと比較することで判別する仕組みを追加する　↓設計・判断 
+- aud検証の追加　現状の設計ではIDトークンがどのOAuthクライアント向けに発行されたかを判別できず、別のアプリに向けたトークンを受け取ってしまう可能性がある　そのため、宛先が書かれたaudと比較することで判別する仕組みを追加する　↓設計・判断
+- pytestでaudが違うIDトークンを送るテストケースを追加してチェック
 - pull
 ---
 - Nginxの設定
@@ -2750,18 +2751,28 @@ proxy_set_header X-Forwarded-Proto $scheme;：通信プロトコル（HTTP/HTTPS
 - `aud`は、IDトークンがどのOAuthクライアント向けに発行されたかを示す
 - AuthlibによるIDトークンの検証に加え、`aud`が自身の`CLIENT_ID`と一致することを明示的に確認する
 - `aud`が異なる場合、他のアプリケーション向けのIDトークンを受け入れないようにHTTP 401を返す。
-- トークン取得後に以下のif文を追加
+- subを取得する前にif文を追加
 ```
-if not user or user.get("aud") != CLIENT_ID:
-    raise HTTPException(
-        status_code=401,
-        detail="IDトークンの検証に失敗しました"
-    )
+if user: #userあれば
+        aud = user.get("aud")
+        if aud != CLIENT_ID:
+            logger.warning("クライアント不一致エラー aud=%s", aud)
+            raise HTTPException(
+            status_code=401,
+            detail="別クライアントへのIDトークンです"
+        )
+        else:
+            sub = user.get('sub')
+            if sub:
+                user_data = identify_user(sub, db)
 ```
 
 - **動作確認**
-  - 正しい`aud`の場合は認証処理を継続する。
-  - 異なる`aud`、または`userinfo`が存在しない場合はHTTP 401を返すことをpytestで確認する。
+- 正しい`aud`の場合は認証処理を継続、 異なる`aud`の場合はHTTP 401を返すことをpytestで確認する。
+- pytestのテストパターン追加 `oauth`のモックの`uinfo`に`aud`の項目を追加してtrueの場合は`"aud": main.CLIENT_ID`にする
+- `aud`が無いパターンと違うパターンのモック`bad_aud_token_mock,no_aud_token_mock`を追加して、それらを使う`test_bad_aud_auth,test_no_aud_auth`を作った
+- 新しく作ったモックを`reset_session`に追加
+- pytest通過を確認してpush
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
