@@ -93,7 +93,6 @@ no_aud_token_mock.google.authorize_access_token = AsyncMock(
         "userinfo":{
             "sub": 1,
             "iss": "a",
-            "aud": None
         }
     }
 )
@@ -121,6 +120,8 @@ def reset_session():
         token_mock,
         no_sub_token_mock,
         no_uinfo_token_mock,
+        bad_aud_token_mock,
+        no_aud_token_mock,
         log_mock,
         db_mock,
         request_mock,
@@ -296,7 +297,7 @@ async def test_bad_aud_auth():
 
 # aud取得失敗エラー
 @pytest.mark.asyncio
-async def test_bad_aud_auth():
+async def test_no_aud_auth():
     with (
             patch("main.oauth",no_aud_token_mock),
             patch("main.logger", log_mock)
