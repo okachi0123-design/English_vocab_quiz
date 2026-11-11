@@ -322,30 +322,40 @@ async def auth(request: Request, db: Session = Depends(get_db)): #認可コー�
 
     request.session.pop("uid", None)
     user = token.get('userinfo') #トークンの取得結果からuserinfoを取り出し、変数userに保存
+    
+    
     if user: #userあれば
-        sub = user.get('sub')
-        if sub:
-            user_data = identify_user(sub, db)
-            if user_data:
-                if user_data.is_allowed == True:
-                    request.session['uid'] = user_data.uid #user情報からuidを見つけて、セッションに保存
-                    logger.info("認証成功 uid=%s", user_data.uid)
-                    return RedirectResponse(url=f"{FRONTEND_URL}/?auth_result=allowed")
-                else:
-                    logger.info("認証済未許可 uid=%s", user_data.uid)
-                    return RedirectResponse(url=f"{FRONTEND_URL}/?auth_result=denied")
-            else:
-                db.add(sql_dbmodels.SQLUsers(sub=sub, is_allowed=False))
-                db.commit()
-                added_data = identify_user(sub, db)
-                logger.info("新規登録 uid=%s", added_data.uid)
-                return RedirectResponse(url=f"{FRONTEND_URL}/?auth_result=requested")
+        aud = user.get("aud")
+        if aud != CLIENT_ID:
+            logger.warning("クライアント不一致エラー aud=%s", aud)
+            raise HTTPException(
+            status_code=401,
+            detail="別クライアントへのIDトークンです"
+        )
         else:
-            logger.warning("sub取得失敗")
-            return RedirectResponse(url=f"{FRONTEND_URL}/?auth_result=data_failed")
+            sub = user.get('sub')
+            if sub:
+                user_data = identify_user(sub, db)
+                if user_data:
+                    if user_data.is_allowed == True:
+                        request.session['uid'] = user_data.uid #user情報からuidを見つけて、セッションに保存
+                        logger.info("認証成功 uid=%s", user_data.uid)
+                        return RedirectResponse(url=f"{FRONTEND_URL}/?auth_result=allowed")
+                    else:
+                        logger.info("認証済未許可 uid=%s", user_data.uid)
+                        return RedirectResponse(url=f"{FRONTEND_URL}/?auth_result=denied")
+                else:
+                    db.add(sql_dbmodels.SQLUsers(sub=sub, is_allowed=False))
+                    db.commit()
+                    added_data = identify_user(sub, db)
+                    logger.info("新規登録 uid=%s", added_data.uid)
+                    return RedirectResponse(url=f"{FRONTEND_URL}/?auth_result=requested")
+            else:
+                logger.warning("sub取得失敗")
+                return RedirectResponse(url=f"{FRONTEND_URL}/?auth_result=data_failed")
     logger.warning("Googleユーザー取得失敗")
     return RedirectResponse(url=f"{FRONTEND_URL}/?auth_result=google_request_failed")
-    #HTTPステータス（401エラー）とエラーメッセージ
+        #HTTPステータス（401エラー）とエラーメッセージ
 
 @app.post('/api/logout')
 def logout(request: Request, origin_check_result = Depends(origin_checker)):

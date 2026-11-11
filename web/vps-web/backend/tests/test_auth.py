@@ -29,6 +29,7 @@ token_mock.google.authorize_access_token = AsyncMock(
         "userinfo":{
             "sub": 1,
             "iss": "a",
+            "aud": main.CLIENT_ID
         }
     }
 )
@@ -45,6 +46,7 @@ no_sub_token_mock.google.authorize_access_token = AsyncMock(
         "userinfo":{
             "sub": None,
             "iss": "a",
+            "aud": main.CLIENT_ID
         }
     }
 )
@@ -58,7 +60,41 @@ no_uinfo_token_mock.google.authorize_access_token = AsyncMock(
         "id_token": "id",
         "token_type": "Bearer",
         "expires_in": 1,
-        "userinfo":None,
+        "userinfo": None
+    }
+)
+
+bad_aud_token_mock = MagicMock()
+bad_aud_token_mock.google.authorize_access_token = AsyncMock(
+    return_value={
+        "access_token": "ac",
+        "refresh_token": "r",
+        "scope": "s",
+        "id_token": "id",
+        "token_type": "Bearer",
+        "expires_in": 1,
+        "userinfo":{
+            "sub": 1,
+            "iss": "a",
+            "aud": "bad_aud"
+        }
+    }
+)
+
+no_aud_token_mock = MagicMock()
+no_aud_token_mock.google.authorize_access_token = AsyncMock(
+    return_value={
+        "access_token": "ac",
+        "refresh_token": "r",
+        "scope": "s",
+        "id_token": "id",
+        "token_type": "Bearer",
+        "expires_in": 1,
+        "userinfo":{
+            "sub": 1,
+            "iss": "a",
+            "aud": None
+        }
     }
 )
 
@@ -243,3 +279,31 @@ async def test_google_failed_auth(monkeypatch):
     ):
         result = await main.auth(request_mock, db_mock)
         assert result == f"{main.FRONTEND_URL}/?auth_result=google_request_failed"
+
+# 別クライアントエラー
+@pytest.mark.asyncio
+async def test_bad_aud_auth():
+    with (
+            patch("main.oauth",bad_aud_token_mock),
+            patch("main.logger", log_mock)
+    ):
+        with pytest.raises(HTTPException) as e:
+            await main.auth(request_mock, db_mock)
+        assert (e.value.status_code, e.value.detail) == (
+    401,
+    "別クライアントへのIDトークンです"
+)
+
+# aud取得失敗エラー
+@pytest.mark.asyncio
+async def test_bad_aud_auth():
+    with (
+            patch("main.oauth",no_aud_token_mock),
+            patch("main.logger", log_mock)
+    ):
+        with pytest.raises(HTTPException) as e:
+            await main.auth(request_mock, db_mock)
+        assert (e.value.status_code, e.value.detail) == (
+    401,
+    "別クライアントへのIDトークンです"
+)
