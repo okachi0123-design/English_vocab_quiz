@@ -2831,22 +2831,6 @@ if user: #userあれば
 ## 2026-11-16
 ### 作業内容
 #### ユーザー別単語登録システム追加
-##### db変更
-- 単語用DBにuidのカラムを追加 idの主キー指定削除
-```
-class SQLQuestion(Base):
-
-    __tablename__ = "eng_vocabulary_words"
-
-    uid = Column(Integer, index=True)
-    id = Column(Integer, index=True)
-    word = Column(String)
-    meaning = Column(String)
-```
-- dbに関するコードに変更の適用
-`uid = request.session.get('uid')`
-`solutions = db.query(sql_dbmodels.SQLQuestion.id, sql_dbmodels.SQLQuestion.meaning).filter(sql_dbmodels.SQLQuestion.uid == uid, sql_dbmodels.SQLQuestion.id.in_(answer_ids)).all()`
-`#putから　やること：ｕｉｄフィルター、ｕｉｄチェック`
 ##### word_checkerの追加
 - uidでDBを検索して単語があるかないかを調べる`word_checker`を追加
 - uidのあるなしは依存関係でチェック済
@@ -2869,6 +2853,65 @@ from word_checker import word_checker
     else:
         if attempt_count >= 100:
 ```
+##### db変更
+- 単語用DBにuidのカラムを追加 idの主キー指定削除
+```
+class SQLQuestion(Base):
+
+    __tablename__ = "eng_vocabulary_words"
+
+    uid = Column(Integer, index=True)
+    id = Column(Integer, index=True)
+    word = Column(String)
+    meaning = Column(String)
+```
+- ↑の適用
+- 適用する関数に`uid = request.session.get('uid')`を追加
+- prepare_questions, get_questions
+`uid = request.session.get('uid')`
+`get_questions(uid, attempt_count, db)`
+`solutions = db.query(sql_dbmodels.SQLQuestion.id, sql_dbmodels.SQLQuestion.meaning).filter(sql_dbmodels.SQLQuestion.uid == uid, sql_dbmodels.SQLQuestion.id.in_(answer_ids)).all()`
+##### word_checkerの変更
+- 各関数に別ファイルの関数word_checkerを書きこんで判定する設計だったが、全てに書きこむのが面倒で、依存関係＋HTTPエラーに変更 以下を依存関係に追加
+```
+def word_exist_checker(db: Session, request: Request):
+    uid = request.session.get('uid')
+    user_words = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.uid == uid).first()
+    if user_words:
+        return
+    else:
+        return HTTPException(
+                status_code=404,
+                detail="単語が存在しません"
+                )
+
+```
+##### db変更 
+- check_and_counter
+`solutions = db.query(sql_dbmodels.SQLQuestion.id, sql_dbmodels.SQLQuestion.meaning).filter(sql_dbmodels.SQLQuestion.uid == uid, sql_dbmodels.SQLQuestion.id.in_(answer_ids)).all()`
+- replace_questions
+`old_data = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.uid == uid, sql_dbmodels.SQLQuestion.id == new_data.id).first()
+        if old_data:`
+
+- add_question
+`same_word = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.uid == uid, sql_dbmodels.SQLQuestion.word == new_question.word).first()`
+
+- delete_question
+`delete_items = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.uid == uid, sql_dbmodels.SQLQuestion.id.in_(delete_ids)).all()`
+
+---
+**DBに変更の適用**
+- カラム追加、主キーを（uid+id）に変更、各uidごとのid振り分けとDBの構造を変更する必要がある
+- 複合主キーの登録　複合主キーは複数のカラムに主キー指定をすると出来る
+```
+uid = Column(Integer, primary_key=True)
+id = Column(Integer, primary_key=True)
+```
+- `index=True`の削除：主キー設定の時点でindexを作成してくれるので二重で指定する必要がない
+- 外部キーの指定　オブジェクト`ForeignKey`の引数に外部テーブルのカラムを登録することで、外部テーブルにない値が登録されないようにできる`ForeignKey("webquiz_users.uid")` 参考：[SQLAlchemy 2.0 Documentation - Defining Foreign Keys](https://docs.sqlalchemy.org/en/20/core/constraints.html#defining-foreign-keys)
+- uidごとのidの自動採番　関数側で設定する
+##### origin_checker依存関係の追加
+- データ登録システムの公開にあたってorigin_checkerをデータ管理apiの依存関係に関連付けた
 ### 設計・判断
 ### 学んだこと
 ### エラー・解決
