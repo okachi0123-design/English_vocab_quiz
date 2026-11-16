@@ -2826,3 +2826,50 @@ if user: #userあれば
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
+
+
+## 2026-11-16
+### 作業内容
+#### ユーザー別単語登録システム追加
+##### db変更
+- 単語用DBにuidのカラムを追加 idの主キー指定削除
+```
+class SQLQuestion(Base):
+
+    __tablename__ = "eng_vocabulary_words"
+
+    uid = Column(Integer, index=True)
+    id = Column(Integer, index=True)
+    word = Column(String)
+    meaning = Column(String)
+```
+- dbに関するコードに変更の適用
+`uid = request.session.get('uid')`
+`solutions = db.query(sql_dbmodels.SQLQuestion.id, sql_dbmodels.SQLQuestion.meaning).filter(sql_dbmodels.SQLQuestion.uid == uid, sql_dbmodels.SQLQuestion.id.in_(answer_ids)).all()`
+`#putから　やること：ｕｉｄフィルター、ｕｉｄチェック`
+##### word_checkerの追加
+- uidでDBを検索して単語があるかないかを調べる`word_checker`を追加
+- uidのあるなしは依存関係でチェック済
+```
+def word_checker(uid: int,db :Session): 
+    user_words = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.uid == uid).first()
+    if user_words:
+        return
+    else:
+        return "no words"
+```
+- `prepare_question`に適用
+```
+from word_checker import word_checker
+
+  uid = request.session.get('uid')
+    word_check_result = word_checker(uid, db)
+    if word_check_result = "no words":
+        RedirectResponse(url=f"{FRONTEND_URL}/?status=no-words")
+    else:
+        if attempt_count >= 100:
+```
+### 設計・判断
+### 学んだこと
+### エラー・解決
+### 次回やること
