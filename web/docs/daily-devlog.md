@@ -2910,8 +2910,48 @@ id = Column(Integer, primary_key=True)
 - `index=True`の削除：主キー設定の時点でindexを作成してくれるので二重で指定する必要がない
 - 外部キーの指定　オブジェクト`ForeignKey`の引数に外部テーブルのカラムを登録することで、外部テーブルにない値が登録されないようにできる`ForeignKey("webquiz_users.uid")` 参考：[SQLAlchemy 2.0 Documentation - Defining Foreign Keys](https://docs.sqlalchemy.org/en/20/core/constraints.html#defining-foreign-keys)
 - uidごとのidの自動採番　関数側で設定する
+- 方法１：uidとidをmodelに追加して`model_dump`を行う
+- 方法２：addの時点で指定？できるか不明
+- add内では`model_dump`と並列で足りないカラムは指定できる
+`db.add(sql_dbmodels.SQLQuestion(**new_question.model_dump(), uid=uid, id=new_data_id))`
+- 最新のidを取得して、+1した値を新idとする　for文内で+1を繰り返す
+```
+            new_data_id = latest_id_row.id + 1
+        for new_question in new_questions:
+            same_word = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.uid == uid, sql_dbmodels.SQLQuestion.word == new_question.word).first()
+
+            if same_word:
+                error_message.append({
+                    "word": same_word.word,
+                    "message": "同一単語が存在します"
+                })
+
+            else:
+                db.add(sql_dbmodels.SQLQuestion(**new_question.model_dump(), uid=uid, id=new_data_id))
+                db.commit()
+                success_message.append({
+                    "word": new_question.word,
+                    "message": "単語が追加されました"
+                })
+                new_data_id = new_data_id + 1
+```
 ##### origin_checker依存関係の追加
 - データ登録システムの公開にあたってorigin_checkerをデータ管理apiの依存関係に関連付けた
+
+##### データ一括取得APIの追加
+```
+@app.get("/api/data")
+def get_all_questions(request: Request, db: Session = Depends(get_db), login_check_result = Depends(login_checker)):
+    uid = request.session.get('uid')
+    questions = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.uid == uid).all()
+    if questions is None:
+        return "まだデータが登録されていません"
+    else:
+        return questions
+```
+- `.all()`はデータがないと空リスト[]を返すので、`if questions is None:`では動かない
+- データのあるなしでの判断が必要
+- `if not questions:`
 ### 設計・判断
 ### 学んだこと
 ### エラー・解決
