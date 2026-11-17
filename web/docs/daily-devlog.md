@@ -3191,8 +3191,53 @@ def test_check_and_counter_half_true():
 ```
 ---
 **test_add_question**
-- 
+- db用モック４パターン
+```
+db_all_true_mock = MagicMock()
+db_all_true_mock.query.return_value.filter.return_value.order_by.return_value.first.return_value = Latest_id_Row(3)
+db_all_true_mock.query.return_value.filter.return_value.first.return_value = None
+db_all_true_mock.add.return_value = None
+db_all_true_mock.return_value = None
 
+db_same_word_mock = MagicMock()
+db_same_word_mock.query.return_value.filter.return_value.order_by.return_value.first.return_value = Latest_id_Row(3)
+db_same_word_mock.query.return_value.filter.return_value.first.return_value = Same_data_Row(1, "cat", "猫", 10)
+db_same_word_mock.add.return_value = None
+db_same_word_mock.return_value = None
+
+db_no_words_mock = MagicMock()
+db_no_words_mock.query.return_value.filter.return_value.order_by.return_value.first.return_value = None
+db_no_words_mock.query.return_value.filter.return_value.first.return_value = Same_data_Row(1, "cat", "猫", 10)
+db_no_words_mock.add.return_value = None
+db_no_words_mock.return_value = None
+
+db_all_false_mock = MagicMock()
+db_all_false_mock.query.return_value.filter.return_value.order_by.return_value.first.return_value = None
+db_all_false_mock.query.return_value.filter.return_value.first.return_value = None
+db_all_false_mock.add.return_value = None
+db_all_false_mock.return_value = None
+```
+- `latest_id`が3,`same_word`がNoneの時
+```
+def test_add_question_all_true():
+    new_questions = [
+        main.NewQuestion(word="cat", meaning="猫"),
+        main.NewQuestion(word="dog", meaning="犬"),
+        main.NewQuestion(word="bird", meaning="鳥"),
+        main.NewQuestion(word="cow", meaning="牛")
+    ]
+    result = main.add_question(request_mock, new_questions,db_all_true_mock)
+    assert result == (
+    [
+        {"id": 4, "word": "cat", "message": "単語が追加されました"},
+        {"id": 5, "word": "dog", "message": "単語が追加されました"},
+        {"id": 6, "word": "bird", "message": "単語が追加されました"},
+        {"id": 7, "word": "cow", "message": "単語が追加されました"},
+    ],
+    []
+    )
+
+```
 ### 設計・判断
 ‐ word_exist_checkerの修正 HTTPエラーの部分がraiseじゃなくreturnになっていた
 ```
