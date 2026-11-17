@@ -2874,7 +2874,7 @@ class SQLQuestion(Base):
 ##### word_checkerの変更
 - 各関数に別ファイルの関数word_checkerを書きこんで判定する設計だったが、全てに書きこむのが面倒で、依存関係＋HTTPエラーに変更 以下を依存関係に追加
 ```
-def word_exist_checker(db: Session, request: Request):
+def word_exist_checker(request: Request, db: Session = Depends(get_db)):
     uid = request.session.get('uid')
     user_words = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.uid == uid).first()
     if user_words:
@@ -2935,6 +2935,54 @@ id = Column(Integer, primary_key=True)
                 })
                 new_data_id = new_data_id + 1
 ```
+
+- テーブルにカラム変更の適用
+- テーブル定義の変更は`ALTER TABLE`でできる
+- カラムの追加は`ADD COLUMN`
+- デフォルトの自動採番設定の削除は`DROP DEFAULT`
+- テーブル制約の追加は`ADD [CONSTRAINT 制約名] 制約内容`
+- カラム設定は`ALTER COLUMN uid SET`
+- NOT NULLは主キーの場合自動で設定される
+- 適用手順
+- pgadminでバックアップ
+- pgadmin上で`ALTER TABLE eng_vocabulary_words
+ADD COLUMN uid INTEGER;`を実行
+- nullのuid追加を確認
+```
+UPDATE eng_vocabulary_words
+SET uid = 
+WHERE uid IS NULL;
+```
+- でuidを追加
+```
+ALTER TABLE eng_vocabulary_words
+ADD CONSTRAINT fk_uid
+FOREIGN KEY (uid)
+REFERENCES webquiz_users(uid);
+```
+- で外部制約を追加
+```
+ALTER TABLE eng_vocabulary_words
+ALTER COLUMN id DROP DEFAULT;
+```
+- でIDの自動採番設定の解除
+```
+SELECT conname, pg_get_constraintdef(oid)
+FROM pg_constraint
+WHERE conrelid = 'eng_vocabulary_words'::regclass
+AND contype = 'p';
+```
+‐ で主キーの名前を確認し、
+```
+ALTER TABLE eng_vocabulary_words
+DROP CONSTRAINT eng_vocabulary_words_pkey,
+ADD PRIMARY KEY (uid, id);
+```
+- で複合主キーの設定
+- テストエラー修正
+- `uid = Column(Integer, ForeignKey("webquiz_users.uid"), primary_key=True)`
+- ForeignKey("webquiz_users.uid")は位置引数なので、primary_key=Trueより前に書く必要がある
+- 関数のテストはpytest
 ##### origin_checker依存関係の追加
 - データ登録システムの公開にあたってorigin_checkerをデータ管理apiの依存関係に関連付けた
 
@@ -2953,6 +3001,228 @@ def get_all_questions(request: Request, db: Session = Depends(get_db), login_che
 - データのあるなしでの判断が必要
 - `if not questions:`
 ### 設計・判断
+### 学んだこと
+### エラー・解決
+### 次回やること
+
+## 2026-11-17
+### 作業内容
+#### pytest変更
+‐ コードの変更箇所
+```
+・word_exist_checker追加と依存関係
+・各関数にuid取得追加
+・DB変更
+・uidフィルター
+・add_questionの変更
+```
+---
+- **test_word_exist_checker**
+- モック　セッション、db
+- HTTPエラーの例外処理は`pytest.raises`
+- first()の返り値はRow→
+```
+from collections import namedtuple
+Row = namedtuple("Row", ["id", "word", "meaning", "uid"])
+```
+```
+import main
+from unittest.mock import MagicMock
+from fastapi import HTTPException
+import pytest
+from collections import namedtuple
+
+Row = namedtuple("Row", ["id", "word", "meaning", "uid"])
+
+request_mock = MagicMock()
+request_mock.session = {"uid": 10}
+
+db_mock = MagicMock()
+db_mock.query.return_value.filter.return_value.first.return_value = Row(1,"cat","ねこ",10)
+
+db_no_words_mock = MagicMock()
+db_no_words_mock.query.return_value.filter.return_value.first.return_value = None
+
+def test_word_exist_checker():
+    result = main.word_exist_checker(request_mock, db_mock)
+    assert result is None
+
+def test_no_word_exist_checker():
+    with pytest.raises(HTTPException) as e:
+        main.word_exist_checker(request_mock, db_no_words_mock)
+    assert (e.value.status_code, e.value.detail) == (
+                404,
+                "単語が存在しません"
+            )
+
+```
+---
+**test_prepare_question**
+- requestのモック追加
+```
+request_mock = MagicMock()
+request_mock.session = {"uid": 10}
+```
+- word_exist_checkerのモック追加
+```
+def word_exist_checker_mock():
+    return
+```
+- 引数追加と`monkeypatch`で適用
+- `get_questions_mock`の引数にuid追加
+---
+**test_get_questions**
+- dbのモックに`filter`追加
+`mock.query.return_value.filter.return_value.order_by.return_value.limit.return_value.all.return_value =`
+‐ 引数にuidの追加
+---
+**test_check_and_counter**
+- 新規作成
+```
+import main
+from unittest.mock import MagicMock
+from collections import namedtuple
+
+Row = namedtuple("Row", ["id", "meaning"])  DBクエリ結果用
+
+request_mock = MagicMock()
+request_mock.session = {"uid": 10}
+
+db_all_true_mock = MagicMock()　DBクエリモック
+db_all_true_mock.query.return_value.filter.return_value.all.return_value = [
+    Row(1,"猫"),
+    Row(2,"犬")
+]
+
+def login_checker_mock():
+    return 
+
+def word_exist_checker_mock():
+    return
+
+
+def test_check_and_counter_all_true(monkeypatch):　
+    monkeypatch.setattr(
+        main,'login_checker',login_checker_mock
+    )
+    monkeypatch.setattr(
+        main,'word_exist_checker',word_exist_checker_mock
+    )
+    answers = [
+    main.Answer(id=1, meaning="猫"),
+    main.Answer(id=2, meaning="犬")
+    ]　解答例
+
+    result = main.check_and_counter(request_mock, answers, db_all_true_mock)
+    assert result == {
+        "results": [
+            {"result": "〇"},
+            {"result": "〇"}
+        ],
+        "attempt": 2,
+        "score": 2,
+        "percentage": 100,
+        "message": "天才",
+    }
+```
+- モック関数を追加したが、必要ないことが分かったので削除
+- モック関数はDBなどの外部と接続するものを実際に接続せずに実行するために置き換えたいときや、途中の関数を置き換えることで処理から切り分けて別々でテストしたい時に使う　関数内に出てくる別の関数は、main内にimportして、そのmainをテストファイルにimportしていたら使えるのでモックに置き換える必要はない
+- login_checkerやword_exist_checkerのモック関数とパッチも必要ないことが分かったので削除
+- 理由：FastAPIのDepends()は、FastAPIがリクエストを処理するときに実行される仕組みで、pytest実行時には呼び出されないから
+- main.pyの関数をpytestから直接呼び出していて、関数内から直接呼ばれていない時は、Dependsの関数はモックにする必要がない
+- ほかの関数も↑の削除　`logout,prepare_questions`
+- 半分間違いverも追加して完成
+```
+import main
+from unittest.mock import MagicMock
+from collections import namedtuple
+
+Row = namedtuple("Row", ["id", "meaning"])
+
+request_mock = MagicMock()
+request_mock.session = {"uid": 10}
+
+db_all_true_mock = MagicMock()
+db_all_true_mock.query.return_value.filter.return_value.all.return_value = [
+    Row(1,"猫"),
+    Row(2,"犬")
+]
+
+def test_check_and_counter_all_true():
+
+    answers = [
+    main.Answer(id=1, meaning="猫"),
+    main.Answer(id=2, meaning="犬")
+    ]
+
+    result = main.check_and_counter(request_mock, answers, db_all_true_mock)
+    assert result == {
+        "results": [
+            {"result": "〇"},
+            {"result": "〇"}
+        ],
+        "attempt": 2,
+        "score": 2,
+        "percentage": 100,
+        "message": "天才",
+    }
+
+def test_check_and_counter_half_true():
+    
+    answers = [
+    main.Answer(id=1, meaning="猫"),
+    main.Answer(id=2, meaning="オオカミ")
+    ]
+
+    result = main.check_and_counter(request_mock, answers, db_all_true_mock)
+    assert result == {
+        "results": [
+            {"result": "〇"},
+            {
+                "result": "✕",
+                "answer": "犬"
+            }
+        ],
+        "attempt": 2,
+        "score": 1,
+        "percentage": 50,
+        "message": "一番おもんない",
+    }
+```
+---
+**test_add_question**
+- 
+
+### 設計・判断
+‐ word_exist_checkerの修正 HTTPエラーの部分がraiseじゃなくreturnになっていた
+```
+    else:
+        raise HTTPException(
+                status_code=404,
+                detail="単語が存在しません"
+                )
+```
+- パスワード認証の削除
+- コード修正
+- 認証系コードの削除
+```
+[main]
+def check_password
+def authorize_data_change
+from fastapi.security import APIKeyHeader
+from pass_auth import password_auth
+from data_change_auth import dcpassword_auth
+```
+```
+[.env]
+PASSWORD=
+API_PASSWORD=
+```
+- 依存関係削除
+- 認証用条件分岐削除
+- `data_change_auth.py``pass_auth.py`の削除
+- header_scheme = APIKeyHeader()の削除
+- テストコード該当モック、条件分岐削除
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
