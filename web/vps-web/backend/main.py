@@ -89,14 +89,6 @@ sql_dbmodels.Base.metadata.create_all(bind=engine)
 
 
 
-
-questions = [
-    NewQuestion(word="implement", meaning="実行する、導入する"),
-    NewQuestion(word="department", meaning="部門、売り場"),
-    NewQuestion(word="review", meaning="検討する、論評する"),
-    NewQuestion(word="detail", meaning="詳細"),
-]
-
 def get_db():
     db = SessionLocal()
     try:
@@ -104,19 +96,7 @@ def get_db():
     finally:
         db.close()
 
-def init_db():
-    db = SessionLocal()
 
-    count = db.query(sql_dbmodels.SQLQuestion).count()
-
-    if count == 0:
-
-        for question in questions:
-           db.add(sql_dbmodels.SQLQuestion(**question.model_dump()))
-        db.commit()
-    db.close()
-
-init_db()
 
 def login_checker(request: Request, db: Session = Depends(get_db)):
     uid = request.session.get('uid')
