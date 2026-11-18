@@ -3211,11 +3211,11 @@ db_no_words_mock.query.return_value.filter.return_value.first.return_value = Sam
 db_no_words_mock.add.return_value = None
 db_no_words_mock.return_value = None
 
-db_all_false_mock = MagicMock()
-db_all_false_mock.query.return_value.filter.return_value.order_by.return_value.first.return_value = None
-db_all_false_mock.query.return_value.filter.return_value.first.return_value = None
-db_all_false_mock.add.return_value = None
-db_all_false_mock.return_value = None
+db_all_none_mock = MagicMock()
+db_all_none_mock.query.return_value.filter.return_value.order_by.return_value.first.return_value = None
+db_all_none_mock.query.return_value.filter.return_value.first.return_value = None
+db_all_none_mock.add.return_value = None
+db_all_none_mock.return_value = None
 ```
 - `latest_id`が3,`same_word`がNoneの時
 ```
@@ -3266,8 +3266,222 @@ API_PASSWORD=
 - 依存関係削除
 - 認証用条件分岐削除
 - `data_change_auth.py``pass_auth.py`の削除
-- header_scheme = APIKeyHeader()の削除
+- `header_scheme = APIKeyHeader()`の削除
 - テストコード該当モック、条件分岐削除
+### 学んだこと
+### エラー・解決
+### 次回やること
+
+## 2026-11-18
+### 作業内容
+#### pytest変更続き
+**test_add_question**
+- 同一単語検索のクエリのモックをそのまま置き換えていて、for文で毎回同一単語があるようになるエラー発生
+```
+ [
+            {
+  -             'id': 4,
+  -             'word': 'dog',
+  ?                      ^^^
+  +             'word': 'cat',
+  ?                      ^^^
+  -             'message': '単語が追加されました',
+  ?                            ^^^^ ^^
+  +             'message': '同一単語が存在します',
+  ?                         ++   ^^^ ^
+            },
+            {
+  -             'id': 5,
+  -             'word': 'bird',
+  ?                      ^^^^
+  +             'word': 'cat',
+  ?                      ^^^
+  -             'message': '単語が追加されました',
+  ?                            ^^^^ ^^
+  +             'message': '同一単語が存在します',
+  ?                         ++   ^^^ ^
+            },
+            {
+  -             'id': 6,
+  -             'word': 'cow',
+  ?                       ^^
+  +             'word': 'cat',
+  ?                       ^^
+  -             'message': '単語が追加されました',
+  ?                            ^^^^ ^^
+  +             'message': '同一単語が存在します',
+  ?                         ++   ^^^ ^
+            },
+  -     ],
+  -     [
+            {
+                'word': 'cat',
+                'message': '同一単語が存在します',
+            },
+        ],
+```
+- `side_effect`でfor文ごとの返り値を与える
+```
+db_same_word_mock.query.return_value.filter.return_value.first.side_effect = [
+    Same_data_Row(1, "cat", "猫", 10),
+    None,
+    None,
+    None
+]
+```
+- 同様に４パターン分作る
+- db_no_words_mock はDBに単語が無いのに重複エラーを返す矛盾した仕組みなので削除し、全権重複に変更
+```
+db_all_same_mock = MagicMock()
+db_all_same_mock.query.return_value.filter.return_value.order_by.return_value.first.return_value = Latest_id_Row(4)
+db_all_same_mock.query.return_value.filter.return_value.first.side_effect = [
+    Same_data_Row(1, "cat", "猫", 10),
+    Same_data_Row(2, "dog", "犬", 10),
+    Same_data_Row(3, "bird", "鳥", 10),
+    Same_data_Row(4, "cow", "牛", 10),
+]
+db_all_same_mock.add.return_value = None
+db_all_same_mock.return_value = None
+```
+- db.commit()のモックにcommitと書くのを忘れていたので追加
+---
+**get_all_questions**
+- ↑で使ったRowを流用
+```
+import main
+from unittest.mock import MagicMock
+from collections import namedtuple
+
+Row = namedtuple("Row", ["id", "word", "meaning", "uid"])
+
+request_mock = MagicMock()
+request_mock.session = {"uid": 10}
+
+db_mock = MagicMock()
+db_mock.query.return_value.filter.return_value.all.return_value = [
+    Row(1, "cat", "猫", 10),
+    Row(2, "dog", "犬", 10),
+    Row(3, "bird", "鳥", 10),
+    Row(4, "cow", "牛", 10),
+]
+
+db_no_mock = MagicMock()
+db_no_mock.query.return_value.filter.return_value.all.return_value = []
+
+def test_get_all_questions():
+    result = main.get_all_questions(request_mock, db_mock)
+    assert result == [
+    Row(1, "cat", "猫", 10),
+    Row(2, "dog", "犬", 10),
+    Row(3, "bird", "鳥", 10),
+    Row(4, "cow", "牛", 10),
+]
+
+def test_get_no_questions():
+    result = main.get_all_questions(request_mock, db_no_mock)
+    assert result == "まだデータが登録されていません"
+```
+---
+**replace_questions**
+‐ 返り値が成功メッセージだけでテスト成功の判別がしにくいのと、変更完了をわかりやすくするためにreplace_questionsの返り値にidと単語を追加
+```
+import main
+from unittest.mock import MagicMock
+from collections import namedtuple
+
+request_mock = MagicMock()
+request_mock.session = {"uid": 10}
+
+Row = namedtuple("Row", ["id", "word", "meaning", "uid"])
+
+db_mock = MagicMock()
+db_mock.query.return_value.filter.return_value.first.return_value = Row(1, "cat", "猫", 10)
+
+db_no_mock = MagicMock()
+db_no_mock.query.return_value.filter.return_value.first.return_value = None
+
+def test_replace_questions():
+    new_data = main.Question(id=1, word="duck", meaning="アヒル")
+    result = main.replace_questions(request_mock, new_data, db_mock)
+    assert result == ("テーブルがアップデートされました", 1, "duck")
+```
+- `namedtuple`の中身が変更できないことによるエラー発生
+- `SimpleNamespace`を代わりに使う　→Rowの代わりとして扱えるオブジェクトで書き換え可能
+```
+from types import SimpleNamespace
+
+db_mock.query.return_value.filter.return_value.first.return_value = SimpleNamespace(
+        id=1,
+        word="cat",
+        meaning="猫",
+        uid=10
+    )
+
+```
+---
+**delete_question**
+- データ削除の時、id検索で見つからなかった時の２パターンチェック
+```
+import main
+from unittest.mock import MagicMock
+from types import SimpleNamespace
+
+request_mock = MagicMock()
+request_mock.session = {"uid": 10}
+
+db_mock = MagicMock()
+db_mock.query.return_value.filter.return_value.all.return_value = [
+    SimpleNamespace(id=1, word="cat", meaning="猫", uid=10),
+    SimpleNamespace(id=2, word="dog", meaning="犬", uid=10),
+    SimpleNamespace(id=3, word="bird", meaning="鳥", uid=10),
+    SimpleNamespace(id=4, word="cow", meaning="牛", uid=10)
+]
+db_mock.commit.return_value = None
+
+db_no_mock = MagicMock()
+db_no_mock.query.return_value.filter.return_value.all.return_value = []
+
+def test_delete_question():
+    delete_ids = [
+        1,
+        2,
+        3,
+        4,
+    ]
+    result = main.delete_question(request_mock, delete_ids, db_mock)
+    assert result == ("以下の問題が削除されました",[
+        "cat",
+        "dog",
+        "bird",
+        "cow"
+    ])
+
+def test_delete_no_question():
+    delete_ids = [
+    1,
+    2,
+    3,
+    4,
+]
+    result = main.delete_question(request_mock, delete_ids, db_no_mock)
+    assert result == "データが削除されませんでした"
+```
+---
+- pytest完成　push
+### 設計・判断
+- `add_questions`で単語が無いとき、idが０から始まるようになっていたので、１から始まるように修正
+```
+if latest_id_row is None:
+    new_data_id = 1
+```
+- `replace_questions`の返り値を文字列だけじゃなく、変更後データのid,wordも表示されるように変更
+```
+   if old_data:
+        old_data.word = new_data.word
+        old_data.meaning = new_data.meaning
+        db.commit()
+        return "テーブルがアップデートされました", old_data.id, old_data.word
+```
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
