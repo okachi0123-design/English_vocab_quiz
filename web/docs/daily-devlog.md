@@ -2697,7 +2697,7 @@ sudo -u postgres pg_dump -Fc -d english_quiz > ~/backups/english_quiz_before_dep
 ##### ソースコードの調整
 - 本番環境ように設定を変更しやすいように、`http://localhost:5173`を環境変数に統一する
 `allow_origins=[FRONTEND_URL],`に変更
-##### VPSデプロイ
+#### VPSデプロイ
 - git pullで新環境を導入
 ‐ 本番環境用に設定変更
 ```
@@ -2722,7 +2722,8 @@ sudo -u postgres pg_dump -Fc -d english_quiz > ~/backups/english_quiz_before_dep
 - ` 'redirect_url': 'http://localhost:8000/api/auth',`の削除　login処理の時点で`/api/auth`の関数'auth'にリダイレクトされる設定になっているので、ここをあえて本番用URLに書き換える必要がない　ローカルでも削除
 - アカウント切り替え時に旧uidが残る問題、許可取り消し後にログアウトできない問題の解消↓設計・判断
 - 非認可別アカウントでの再ログイン時にクイズ挑戦が出来ず、falseに変えた後もログアウトできることを確認
-- aud検証の追加　現状の設計ではIDトークンがどのOAuthクライアント向けに発行されたかを判別できず、別のアプリに向けたトークンを受け取ってしまう可能性がある　そのため、宛先が書かれたaudと比較することで判別する仕組みを追加する　↓設計・判断 
+- aud検証の追加　現状の設計ではIDトークンがどのOAuthクライアント向けに発行されたかを判別できず、別のアプリに向けたトークンを受け取ってしまう可能性がある　そのため、宛先が書かれたaudと比較することで判別する仕組みを追加する　↓設計・判断
+- pytestでaudが違うIDトークンを送るテストケースを追加してチェック
 - pull
 ---
 - Nginxの設定
@@ -2736,8 +2737,58 @@ proxy_set_header X-Forwarded-Proto $scheme;：通信プロトコル（HTTP/HTTPS
 - `/etc/nginx/sites-available/webquiz`の`location /api`内に追加する
 - `sudo nginx -t`で設定の構文チェックを行い、`sudo systemctl reload nginx`で反映
 - 参考： [Integrating Google Authentication with FastAPI: A Step-by-Step Guide（FutureSmart AI）](https://blog.futuresmart.ai/integrating-google-authentication-with-fastapi-a-step-by-step-guide)
-
-
+---
+**VPSデプロイ**
+- `.env`を`/opt`配下にcp,権限を640に変更
+- `ls -la`を本番用と開発用dirで実行して確認 更新時刻やサイズが異なるファイルを見つけて変更箇所を絞る
+```
+main.py	
+models.py	
+sql_dbmodels.py	
+requirements.txt
+auth_conf.py	
+identify_user.py
+.env_example
+pytest.ini
+test.py
+```
+- `README,.env,.venv`を含めなければこれらが変更されている
+- その内上の６つが本番環境でも使われるファイルなのでこれらをcpする
+- 権限を640に変更して確認する
+- `requirements.txt`を使用して、`/opt/webquiz/.venv`の既存の仮想環境に、必要なライブラリをインストール・更新
+`sudo /opt/webquiz/.venv/bin/python3 -m pip install  -r /opt/webquiz/requirements.txt`
+- 更新したソースコードを反映するため、systemdでFastAPIサービスを再起動 `sudo systemctl restart webquiz.service`
+- `sudo -u postgres psql -d english_quiz -c '\dt'`でテーブルが追加されてるか確認
+- `sudo -u postgres psql -d english_quiz -c '\d webquiz_users'`でテーブル形式を確認
+---
+**デプロイ後チェック**
+- ブラウザから`https://my-webquiz.duckdns.org/api/login`に直接アクセスしてログインできるか確認
+- ログイン処理成功
+- `sudo -u postgres psql -d english_quiz -c "SELECT * FROM webquiz_users ORDER BY uid;"`でテーブルに追加されているか確認
+- `sudo -u postgres psql -d english_quiz -c "UPDATE webquiz_users SET is_allowed = TRUE WHERE uid = 1;"`で利用許可
+- URLのリダイレクトとクエリパラメータを確認
+---
+**フロントエンドのデプロイ**
+- 前回と同様に開発側で作って転送する
+```
+npm ci　で依存ライブラリをインストール
+npm run build　でビルド
+scpで転送
+sudo cp -r dist/* /var/www/webquiz でフロントエンドの適用
+```
+#### デプロイ後チェック
+- `https://my-webquiz.duckdns.org`に接続して確認
+- ログイン後、旧バージョンのフロントエンドに変わるエラー発生
+- `ctrl+shift+r`で治るが、毎回押さなければ治らない→キャッシュの問題が継続
+- Nginxのキャッシュが新しいフロントエンドを認識していない
+- SPAのサーバーブロックにキャッシュコントロールを追加して、キャッシュ再利用時に更新確認させるように設定
+```
+location = /index.html {
+    add_header Cache-Control "no-cache, must-revalidate" always;
+}
+```
+- テストしたが同じエラー　ブラウザの開発者画面でdisable cacheを有効にし再読み込み、解除してさらに再読み込みで修正完了→ブラウザ側の古いキャッシュが問題
+- 修正後　再度クイズの挑戦・採点・ログアウト・再ログイン再度を確認し、デプロイ完了
 ### 設計・判断
 - **アカウント切り替え時のセッション管理**：許可済みアカウントAから未許可アカウントBに切り替えた際、以前の`uid`がセッションに残り、Aの権限でAPIを利用できてしまう可能性があるため、修正する
 - Googleの認証・トークン検証成功後、利用許可を判定する前に`request.session.pop("uid", None)`で元々セッションに保存していた`uid`を削除する。
@@ -2750,18 +2801,473 @@ proxy_set_header X-Forwarded-Proto $scheme;：通信プロトコル（HTTP/HTTPS
 - `aud`は、IDトークンがどのOAuthクライアント向けに発行されたかを示す
 - AuthlibによるIDトークンの検証に加え、`aud`が自身の`CLIENT_ID`と一致することを明示的に確認する
 - `aud`が異なる場合、他のアプリケーション向けのIDトークンを受け入れないようにHTTP 401を返す。
-- トークン取得後に以下のif文を追加
+- subを取得する前にif文を追加
 ```
-if not user or user.get("aud") != CLIENT_ID:
-    raise HTTPException(
-        status_code=401,
-        detail="IDトークンの検証に失敗しました"
-    )
+if user: #userあれば
+        aud = user.get("aud")
+        if aud != CLIENT_ID:
+            logger.warning("クライアント不一致エラー aud=%s", aud)
+            raise HTTPException(
+            status_code=401,
+            detail="別クライアントへのIDトークンです"
+        )
+        else:
+            sub = user.get('sub')
+            if sub:
+                user_data = identify_user(sub, db)
 ```
 
 - **動作確認**
-  - 正しい`aud`の場合は認証処理を継続する。
-  - 異なる`aud`、または`userinfo`が存在しない場合はHTTP 401を返すことをpytestで確認する。
+- 正しい`aud`の場合は認証処理を継続、 異なる`aud`の場合はHTTP 401を返すことをpytestで確認する。
+- pytestのテストパターン追加 `oauth`のモックの`uinfo`に`aud`の項目を追加してtrueの場合は`"aud": main.CLIENT_ID`にする
+- `aud`が無いパターンと違うパターンのモック`bad_aud_token_mock,no_aud_token_mock`を追加して、それらを使う`test_bad_aud_auth,test_no_aud_auth`を作った
+- 新しく作ったモックを`reset_session`に追加
+- pytest通過を確認してpush
+### 学んだこと
+### エラー・解決
+### 次回やること
+
+
+## 2026-11-16
+### 作業内容
+#### ユーザー別単語登録システム追加
+##### word_checkerの追加
+- uidでDBを検索して単語があるかないかを調べる`word_checker`を追加
+- uidのあるなしは依存関係でチェック済
+```
+def word_checker(uid: int,db :Session): 
+    user_words = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.uid == uid).first()
+    if user_words:
+        return
+    else:
+        return "no words"
+```
+- `prepare_question`に適用
+```
+from word_checker import word_checker
+
+  uid = request.session.get('uid')
+    word_check_result = word_checker(uid, db)
+    if word_check_result = "no words":
+        RedirectResponse(url=f"{FRONTEND_URL}/?status=no-words")
+    else:
+        if attempt_count >= 100:
+```
+##### db変更
+- 単語用DBにuidのカラムを追加 idの主キー指定削除
+```
+class SQLQuestion(Base):
+
+    __tablename__ = "eng_vocabulary_words"
+
+    uid = Column(Integer, index=True)
+    id = Column(Integer, index=True)
+    word = Column(String)
+    meaning = Column(String)
+```
+- ↑の適用
+- 適用する関数に`uid = request.session.get('uid')`を追加
+- prepare_questions, get_questions
+`uid = request.session.get('uid')`
+`get_questions(uid, attempt_count, db)`
+`solutions = db.query(sql_dbmodels.SQLQuestion.id, sql_dbmodels.SQLQuestion.meaning).filter(sql_dbmodels.SQLQuestion.uid == uid, sql_dbmodels.SQLQuestion.id.in_(answer_ids)).all()`
+##### word_checkerの変更
+- 各関数に別ファイルの関数word_checkerを書きこんで判定する設計だったが、全てに書きこむのが面倒で、依存関係＋HTTPエラーに変更 以下を依存関係に追加
+```
+def word_exist_checker(request: Request, db: Session = Depends(get_db)):
+    uid = request.session.get('uid')
+    user_words = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.uid == uid).first()
+    if user_words:
+        return
+    else:
+        return HTTPException(
+                status_code=404,
+                detail="単語が存在しません"
+                )
+
+```
+##### db変更 
+- check_and_counter
+`solutions = db.query(sql_dbmodels.SQLQuestion.id, sql_dbmodels.SQLQuestion.meaning).filter(sql_dbmodels.SQLQuestion.uid == uid, sql_dbmodels.SQLQuestion.id.in_(answer_ids)).all()`
+- replace_questions
+`old_data = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.uid == uid, sql_dbmodels.SQLQuestion.id == new_data.id).first()
+        if old_data:`
+
+- add_question
+`same_word = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.uid == uid, sql_dbmodels.SQLQuestion.word == new_question.word).first()`
+
+- delete_question
+`delete_items = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.uid == uid, sql_dbmodels.SQLQuestion.id.in_(delete_ids)).all()`
+
+---
+**DBに変更の適用**
+- カラム追加、主キーを（uid+id）に変更、各uidごとのid振り分けとDBの構造を変更する必要がある
+- 複合主キーの登録　複合主キーは複数のカラムに主キー指定をすると出来る
+```
+uid = Column(Integer, primary_key=True)
+id = Column(Integer, primary_key=True)
+```
+- `index=True`の削除：主キー設定の時点でindexを作成してくれるので二重で指定する必要がない
+- 外部キーの指定　オブジェクト`ForeignKey`の引数に外部テーブルのカラムを登録することで、外部テーブルにない値が登録されないようにできる`ForeignKey("webquiz_users.uid")` 参考：[SQLAlchemy 2.0 Documentation - Defining Foreign Keys](https://docs.sqlalchemy.org/en/20/core/constraints.html#defining-foreign-keys)
+- uidごとのidの自動採番　関数側で設定する
+- 方法１：uidとidをmodelに追加して`model_dump`を行う
+- 方法２：addの時点で指定？できるか不明
+- add内では`model_dump`と並列で足りないカラムは指定できる
+`db.add(sql_dbmodels.SQLQuestion(**new_question.model_dump(), uid=uid, id=new_data_id))`
+- 最新のidを取得して、+1した値を新idとする　for文内で+1を繰り返す
+```
+            new_data_id = latest_id_row.id + 1
+        for new_question in new_questions:
+            same_word = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.uid == uid, sql_dbmodels.SQLQuestion.word == new_question.word).first()
+
+            if same_word:
+                error_message.append({
+                    "word": same_word.word,
+                    "message": "同一単語が存在します"
+                })
+
+            else:
+                db.add(sql_dbmodels.SQLQuestion(**new_question.model_dump(), uid=uid, id=new_data_id))
+                db.commit()
+                success_message.append({
+                    "word": new_question.word,
+                    "message": "単語が追加されました"
+                })
+                new_data_id = new_data_id + 1
+```
+
+- テーブルにカラム変更の適用
+- テーブル定義の変更は`ALTER TABLE`でできる
+- カラムの追加は`ADD COLUMN`
+- デフォルトの自動採番設定の削除は`DROP DEFAULT`
+- テーブル制約の追加は`ADD [CONSTRAINT 制約名] 制約内容`
+- カラム設定は`ALTER COLUMN uid SET`
+- NOT NULLは主キーの場合自動で設定される
+- 適用手順
+- pgadminでバックアップ
+- pgadmin上で`ALTER TABLE eng_vocabulary_words
+ADD COLUMN uid INTEGER;`を実行
+- nullのuid追加を確認
+```
+UPDATE eng_vocabulary_words
+SET uid = 
+WHERE uid IS NULL;
+```
+- でuidを追加
+```
+ALTER TABLE eng_vocabulary_words
+ADD CONSTRAINT fk_uid
+FOREIGN KEY (uid)
+REFERENCES webquiz_users(uid);
+```
+- で外部制約を追加
+```
+ALTER TABLE eng_vocabulary_words
+ALTER COLUMN id DROP DEFAULT;
+```
+- でIDの自動採番設定の解除
+```
+SELECT conname, pg_get_constraintdef(oid)
+FROM pg_constraint
+WHERE conrelid = 'eng_vocabulary_words'::regclass
+AND contype = 'p';
+```
+‐ で主キーの名前を確認し、
+```
+ALTER TABLE eng_vocabulary_words
+DROP CONSTRAINT eng_vocabulary_words_pkey,
+ADD PRIMARY KEY (uid, id);
+```
+- で複合主キーの設定
+- テストエラー修正
+- `uid = Column(Integer, ForeignKey("webquiz_users.uid"), primary_key=True)`
+- ForeignKey("webquiz_users.uid")は位置引数なので、primary_key=Trueより前に書く必要がある
+- 関数のテストはpytest
+##### origin_checker依存関係の追加
+- データ登録システムの公開にあたってorigin_checkerをデータ管理apiの依存関係に関連付けた
+
+##### データ一括取得APIの追加
+```
+@app.get("/api/data")
+def get_all_questions(request: Request, db: Session = Depends(get_db), login_check_result = Depends(login_checker)):
+    uid = request.session.get('uid')
+    questions = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.uid == uid).all()
+    if questions is None:
+        return "まだデータが登録されていません"
+    else:
+        return questions
+```
+- `.all()`はデータがないと空リスト[]を返すので、`if questions is None:`では動かない
+- データのあるなしでの判断が必要
+- `if not questions:`
+### 設計・判断
+### 学んだこと
+### エラー・解決
+### 次回やること
+
+## 2026-11-17
+### 作業内容
+#### pytest変更
+‐ コードの変更箇所
+```
+・word_exist_checker追加と依存関係
+・各関数にuid取得追加
+・DB変更
+・uidフィルター
+・add_questionの変更
+```
+---
+- **test_word_exist_checker**
+- モック　セッション、db
+- HTTPエラーの例外処理は`pytest.raises`
+- first()の返り値はRow→
+```
+from collections import namedtuple
+Row = namedtuple("Row", ["id", "word", "meaning", "uid"])
+```
+```
+import main
+from unittest.mock import MagicMock
+from fastapi import HTTPException
+import pytest
+from collections import namedtuple
+
+Row = namedtuple("Row", ["id", "word", "meaning", "uid"])
+
+request_mock = MagicMock()
+request_mock.session = {"uid": 10}
+
+db_mock = MagicMock()
+db_mock.query.return_value.filter.return_value.first.return_value = Row(1,"cat","ねこ",10)
+
+db_no_words_mock = MagicMock()
+db_no_words_mock.query.return_value.filter.return_value.first.return_value = None
+
+def test_word_exist_checker():
+    result = main.word_exist_checker(request_mock, db_mock)
+    assert result is None
+
+def test_no_word_exist_checker():
+    with pytest.raises(HTTPException) as e:
+        main.word_exist_checker(request_mock, db_no_words_mock)
+    assert (e.value.status_code, e.value.detail) == (
+                404,
+                "単語が存在しません"
+            )
+
+```
+---
+**test_prepare_question**
+- requestのモック追加
+```
+request_mock = MagicMock()
+request_mock.session = {"uid": 10}
+```
+- word_exist_checkerのモック追加
+```
+def word_exist_checker_mock():
+    return
+```
+- 引数追加と`monkeypatch`で適用
+- `get_questions_mock`の引数にuid追加
+---
+**test_get_questions**
+- dbのモックに`filter`追加
+`mock.query.return_value.filter.return_value.order_by.return_value.limit.return_value.all.return_value =`
+‐ 引数にuidの追加
+---
+**test_check_and_counter**
+- 新規作成
+```
+import main
+from unittest.mock import MagicMock
+from collections import namedtuple
+
+Row = namedtuple("Row", ["id", "meaning"])  DBクエリ結果用
+
+request_mock = MagicMock()
+request_mock.session = {"uid": 10}
+
+db_all_true_mock = MagicMock()　DBクエリモック
+db_all_true_mock.query.return_value.filter.return_value.all.return_value = [
+    Row(1,"猫"),
+    Row(2,"犬")
+]
+
+def login_checker_mock():
+    return 
+
+def word_exist_checker_mock():
+    return
+
+
+def test_check_and_counter_all_true(monkeypatch):　
+    monkeypatch.setattr(
+        main,'login_checker',login_checker_mock
+    )
+    monkeypatch.setattr(
+        main,'word_exist_checker',word_exist_checker_mock
+    )
+    answers = [
+    main.Answer(id=1, meaning="猫"),
+    main.Answer(id=2, meaning="犬")
+    ]　解答例
+
+    result = main.check_and_counter(request_mock, answers, db_all_true_mock)
+    assert result == {
+        "results": [
+            {"result": "〇"},
+            {"result": "〇"}
+        ],
+        "attempt": 2,
+        "score": 2,
+        "percentage": 100,
+        "message": "天才",
+    }
+```
+- モック関数を追加したが、必要ないことが分かったので削除
+- モック関数はDBなどの外部と接続するものを実際に接続せずに実行するために置き換えたいときや、途中の関数を置き換えることで処理から切り分けて別々でテストしたい時に使う　関数内に出てくる別の関数は、main内にimportして、そのmainをテストファイルにimportしていたら使えるのでモックに置き換える必要はない
+- login_checkerやword_exist_checkerのモック関数とパッチも必要ないことが分かったので削除
+- 理由：FastAPIのDepends()は、FastAPIがリクエストを処理するときに実行される仕組みで、pytest実行時には呼び出されないから
+- main.pyの関数をpytestから直接呼び出していて、関数内から直接呼ばれていない時は、Dependsの関数はモックにする必要がない
+- ほかの関数も↑の削除　`logout,prepare_questions`
+- 半分間違いverも追加して完成
+```
+import main
+from unittest.mock import MagicMock
+from collections import namedtuple
+
+Row = namedtuple("Row", ["id", "meaning"])
+
+request_mock = MagicMock()
+request_mock.session = {"uid": 10}
+
+db_all_true_mock = MagicMock()
+db_all_true_mock.query.return_value.filter.return_value.all.return_value = [
+    Row(1,"猫"),
+    Row(2,"犬")
+]
+
+def test_check_and_counter_all_true():
+
+    answers = [
+    main.Answer(id=1, meaning="猫"),
+    main.Answer(id=2, meaning="犬")
+    ]
+
+    result = main.check_and_counter(request_mock, answers, db_all_true_mock)
+    assert result == {
+        "results": [
+            {"result": "〇"},
+            {"result": "〇"}
+        ],
+        "attempt": 2,
+        "score": 2,
+        "percentage": 100,
+        "message": "天才",
+    }
+
+def test_check_and_counter_half_true():
+    
+    answers = [
+    main.Answer(id=1, meaning="猫"),
+    main.Answer(id=2, meaning="オオカミ")
+    ]
+
+    result = main.check_and_counter(request_mock, answers, db_all_true_mock)
+    assert result == {
+        "results": [
+            {"result": "〇"},
+            {
+                "result": "✕",
+                "answer": "犬"
+            }
+        ],
+        "attempt": 2,
+        "score": 1,
+        "percentage": 50,
+        "message": "一番おもんない",
+    }
+```
+---
+**test_add_question**
+- db用モック４パターン
+```
+db_all_true_mock = MagicMock()
+db_all_true_mock.query.return_value.filter.return_value.order_by.return_value.first.return_value = Latest_id_Row(3)
+db_all_true_mock.query.return_value.filter.return_value.first.return_value = None
+db_all_true_mock.add.return_value = None
+db_all_true_mock.return_value = None
+
+db_same_word_mock = MagicMock()
+db_same_word_mock.query.return_value.filter.return_value.order_by.return_value.first.return_value = Latest_id_Row(3)
+db_same_word_mock.query.return_value.filter.return_value.first.return_value = Same_data_Row(1, "cat", "猫", 10)
+db_same_word_mock.add.return_value = None
+db_same_word_mock.return_value = None
+
+db_no_words_mock = MagicMock()
+db_no_words_mock.query.return_value.filter.return_value.order_by.return_value.first.return_value = None
+db_no_words_mock.query.return_value.filter.return_value.first.return_value = Same_data_Row(1, "cat", "猫", 10)
+db_no_words_mock.add.return_value = None
+db_no_words_mock.return_value = None
+
+db_all_false_mock = MagicMock()
+db_all_false_mock.query.return_value.filter.return_value.order_by.return_value.first.return_value = None
+db_all_false_mock.query.return_value.filter.return_value.first.return_value = None
+db_all_false_mock.add.return_value = None
+db_all_false_mock.return_value = None
+```
+- `latest_id`が3,`same_word`がNoneの時
+```
+def test_add_question_all_true():
+    new_questions = [
+        main.NewQuestion(word="cat", meaning="猫"),
+        main.NewQuestion(word="dog", meaning="犬"),
+        main.NewQuestion(word="bird", meaning="鳥"),
+        main.NewQuestion(word="cow", meaning="牛")
+    ]
+    result = main.add_question(request_mock, new_questions,db_all_true_mock)
+    assert result == (
+    [
+        {"id": 4, "word": "cat", "message": "単語が追加されました"},
+        {"id": 5, "word": "dog", "message": "単語が追加されました"},
+        {"id": 6, "word": "bird", "message": "単語が追加されました"},
+        {"id": 7, "word": "cow", "message": "単語が追加されました"},
+    ],
+    []
+    )
+
+```
+### 設計・判断
+‐ word_exist_checkerの修正 HTTPエラーの部分がraiseじゃなくreturnになっていた
+```
+    else:
+        raise HTTPException(
+                status_code=404,
+                detail="単語が存在しません"
+                )
+```
+- パスワード認証の削除
+- コード修正
+- 認証系コードの削除
+```
+[main]
+def check_password
+def authorize_data_change
+from fastapi.security import APIKeyHeader
+from pass_auth import password_auth
+from data_change_auth import dcpassword_auth
+```
+```
+[.env]
+PASSWORD=
+API_PASSWORD=
+```
+- 依存関係削除
+- 認証用条件分岐削除
+- `data_change_auth.py``pass_auth.py`の削除
+- header_scheme = APIKeyHeader()の削除
+- テストコード該当モック、条件分岐削除
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
