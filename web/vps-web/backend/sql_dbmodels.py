@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
@@ -8,7 +8,8 @@ class SQLQuestion(Base):
 
     __tablename__ = "eng_vocabulary_words"
 
-    id = Column(Integer, primary_key=True, index=True)
+    uid = Column(Integer, ForeignKey("webquiz_users.uid"), primary_key=True)
+    id = Column(Integer, primary_key=True)
     word = Column(String)
     meaning = Column(String)
 

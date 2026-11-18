@@ -100,7 +100,7 @@ no_aud_token_mock.google.authorize_access_token = AsyncMock(
 log_mock = MagicMock()
 log_mock.logger.return_value = None
 
-request_user_log_mock = MagicMock
+
 
 
 db_mock = MagicMock()
