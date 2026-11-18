@@ -3468,6 +3468,18 @@ def test_delete_no_question():
 ```
 ---
 - pytest完成　push
+- CI時にGitHub上でDBコンテナを作る際にエラー発生
+- `init_db`がDB接続時にテーブルが無ければ、リストにある数個のpydanticモデルのデータを登録する仕組みが残っているが、そのデータ型にuidが登録されておらずuidの`NotNull`と矛盾した
+```
+sqlalchemy.exc.IntegrityError
+psycopg2.errors.NotNullViolation
+
+null value in column "uid" of relation
+"eng_vocabulary_words" violates not-null constraint
+```
+- `init_db`を見直し（詳細↓設計・判断）
+- `init_db`、初期データ用リストの削除
+- 再度Push CI成功
 ### 設計・判断
 - `add_questions`で単語が無いとき、idが０から始まるようになっていたので、１から始まるように修正
 ```
@@ -3482,6 +3494,10 @@ if latest_id_row is None:
         db.commit()
         return "テーブルがアップデートされました", old_data.id, old_data.word
 ```
+- `init_db`の見直し
+- FastAPI学習時の名残で、リストから初期データをDBに登録する`init_db`を残していたが、`add_questions`の制作やCIのエラーがあり削除する
+- 同時に初期データ用リストも削除する
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
+‐ CD導入
