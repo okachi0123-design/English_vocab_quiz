@@ -44,7 +44,6 @@ jobs:
             --exclude='__pycache__/' \
             --exclude='venv.sh' \
             --chown=root:webquiz \
-            web/vps-web/backend/ \
             /home/murabito/deploy-staging/backend/ \
             /opt/webquiz/"
 
