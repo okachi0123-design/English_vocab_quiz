@@ -1,0 +1,53 @@
+on:
+  workflow_run:
+    workflows: ["Run-Web-Pytest"]
+    branches: ["main"]
+    types: ["completed"]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Checkout-repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Setup SSH agent #秘密鍵のssh-agentへの登録
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+
+      - name: Add Host to known_hosts #VPSのホスト公開鍵をknown_hostsに登録
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_HOST_KEY }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy backend via rsync #rsyncによるバックエンドファイルの差分転送でデプロイ
+        run: | #|で複数行のコマンドと指定 
+          rsync -avzn \
+            --exclude='.env' \
+            --exclude='.venv/' \
+            --exclude='__pycache__/' \
+            --exclude='webserver.sh' \
+            --exclude='venv.sh' \
+            web/vps-web/backend/ \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/webquiz/
+
+      - name: Build frontend
+        run: |
+          cd web/vps-web/frontend
+          npm ci
+          npm run build
+
+      - name: Deploy frontend via rsync #フロントエンド差分転送
+        run: |
+          rsync -avzn \
+            web/vps-web/frontend/dist/ \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/var/www/webquiz/
+    
+      - name: Restart services
+        run: |
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            "sudo systemctl restart webquiz.service && echo 'Restarted'"
