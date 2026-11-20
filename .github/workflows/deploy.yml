@@ -24,16 +24,30 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.VPS_HOST_KEY }}" >> ~/.ssh/known_hosts
 
-      - name: Deploy backend via rsync #rsyncによるバックエンドファイルの差分転送でデプロイ
+      - name: Deploy backend to staging #rsyncによるバックエンドファイルの差分転送でデプロイ
         run: | #|で複数行のコマンドと指定 
-          rsync -avzn \
+          rsync -avz \
             --exclude='.env' \
             --exclude='.venv/' \
             --exclude='__pycache__/' \
             --exclude='webserver.sh' \
             --exclude='venv.sh' \
             web/vps-web/backend/ \
-            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/webquiz/
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/home/murabito/deploy-staging/backend/
+
+      - name: Deploy backend to Production #本番環境/opt/webquizへのデプロイ
+        run: |
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            "sudo -n rsync -avzn \
+            --exclude='.env' \
+            --exclude='.venv/' \
+            --exclude='__pycache__/' \
+            --exclude='venv.sh' \
+            --chown=root:webquiz \
+            web/vps-web/backend/ \
+            /home/murabito/deploy-staging/backend/ \
+            /opt/webquiz/"
+
 
       - name: Build frontend
         run: |
@@ -50,4 +64,4 @@ jobs:
       - name: Restart services
         run: |
           ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
-            "sudo systemctl restart webquiz.service && echo 'Restarted'"
+            "sudo -n systemctl restart webquiz.service && echo 'Restarted'"
