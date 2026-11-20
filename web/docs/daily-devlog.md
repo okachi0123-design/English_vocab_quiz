@@ -3771,7 +3771,42 @@ PRIMARY KEY (uid, id);
 - `deploy.yml`にテストの実行結果を基にデプロイを実行するかの判断をさせるように`workflow_runトリガー`による連鎖を追加
 - 追加後`deploy.yml`だけをpushしてdry runをテスト
 - /opt/webquizへのrsyncで権限が無いためエラー
-
+---
+- **rsync権限問題の対策**
+- rsyncは送信者側と受信側で実行されていて、送信側でsudoを指定しても、それはVPS側の権限じゃない　    VPS側でsudoの権限を変える必要があるが、そうすると受信側のユーザーが`sudo rsync`を無制限でパスワードなしで実行できるようになる
+- 受取用のファイル？を用意して一旦送った後、SSH接続してVPS内でsudo権限を使ったrsyncを行う設計にする　（ここで依存ジョブ使うかも？）←ジョブ内のstepは自動で上から順番に実行してくれるので必要無い
+- visudoで特定のrsyncだけノーパスを許可する
+- VPS上で転送先のディレクトリを作成する`/deploy-staging/backend/`
+- 最初の転送先を変更` ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/home/murabito/deploy-staging/backend/`＊名前も変更`name: Deploy backend to staging`
+- SSH接続して`sudo -n`で転送先から本番環境に`rsync`するstepの追加
+```
+- name: Deploy backend to Production #本番環境/opt/webquizへのデプロイ
+        run: |
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            "sudo -n rsync -avzn /home/murabito/deploy-staging/backend/ /opt/webquiz/"
+```
+- ファイルの権限が受け継がれるので受け継がれないように指定を追加＋長いから改行区切りにした
+```
+          "sudo -n rsync -avzn \
+            --chown=root:webquiz \
+            /home/murabito/deploy-staging/backend/ \
+            /opt/webquiz/"
+```
+- `--delete`をdry-run後に追加するので、削除されないように転送しないファイルを除外するように設定
+```
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            "sudo -n rsync -avzn \
+            --exclude='.env' \
+            --exclude='.venv/' \
+            --exclude='__pycache__/' \
+            --exclude='venv.sh' \
+            --chown=root:webquiz \
+            /home/murabito/deploy-staging/backend/ \
+            /opt/webquiz/"
+```
+- 一回目の転送は本番に影響がないので-nを消す
+- `sudo visudo -f /etc/sudoers.d/webquiz-deploy`でサービス再起動用に作ったsudoersファイルに `murabito ALL=(root) NOPASSWD: /usr/bin/rsync -avzn  --exclude=.env --exclude=.venv/ --exclude=__pycache__/ --exclude=venv.sh --chown=root\:webquiz /home/murabito/deploy-staging/backend/ /opt/webquiz/`を追加
+- ドライランで成功を確認
 ### 設計・判断
 ### 学んだこと
 ### エラー・解決
