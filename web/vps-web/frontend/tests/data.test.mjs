@@ -129,8 +129,9 @@ test("HTTP 200 missing edit target keeps changes; retry posts only the ID and ed
   assert(calls.every((request) => request.credentials === "include"));
 });
 
-test("delete selection and cancellation are local; a missing target keeps the pending list", async () => {
+test("delete confirmation offers local return actions and preserves the pending list on failure", async () => {
   let fail = true;
+  let finishFailedDelete;
   let deleted = false;
   let refreshFailed = false;
   const calls = mockApi((method) => {
@@ -141,7 +142,7 @@ test("delete selection and cancellation are local; a missing target keeps the pe
       }
       return Response.json(deleted ? [{ ...cat, meaning: "再取得した意味" }] : [cat, dog]);
     }
-    if (fail) return Response.json("データが削除されませんでした");
+    if (fail) return new Promise(resolve => { finishFailedDelete = resolve; });
     deleted = true;
     return Response.json(["以下の問題が削除されました", ["dog"]]);
   });
@@ -151,15 +152,34 @@ test("delete selection and cancellation are local; a missing target keeps the pe
   await toggleWord(1);
   await click("確認画面へ");
   assert.match(page(), /削除予定リスト/);
+  const cancel = button("キャンセル");
+  const actions = cancel.closest(".data-actions-confirm");
+  assert.equal(actions.firstElementChild, cancel.parentElement);
+  assert.equal(button("問題管理画面へ").nextElementSibling, cancel);
+  assert.equal(actions.lastElementChild, button("削除"));
   assert.equal(button("✕").getAttribute("aria-label"), "catを削除予定から外す");
   await click("✕");
   await click("キャンセル");
   assert.deepEqual([...document.querySelectorAll('input[type="checkbox"]')].map((input) => input.checked), [false, true]);
+  const selectionCancel = button("キャンセル");
+  const [leftActions, rightActions] = selectionCancel.closest("footer").children;
+  assert(leftActions.contains(selectionCancel));
+  assert.equal(button("確認画面へ").parentElement, rightActions);
+  assert.match(rightActions.textContent, /選択数：1件/);
   await click("キャンセル");
-  await click("削除");
-  await click("確認画面へ");
+  assert.equal(document.querySelector(".data-nav h1").textContent, "問題管理");
   assert.deepEqual(methods(calls), ["GET"]);
   await click("削除");
+  await click("確認画面へ");
+  await click("問題管理画面へ");
+  assert.equal(document.querySelector(".data-nav h1").textContent, "問題管理");
+  assert.deepEqual(methods(calls), ["GET"]);
+  await click("削除");
+  await click("確認画面へ");
+  await click("削除");
+  assert.equal(button("問題管理画面へ").disabled, true);
+  assert.equal(button("キャンセル").disabled, true);
+  await act(async () => finishFailedDelete(Response.json("データが削除されませんでした")));
   assert.match(page(), /データが削除されませんでした/);
   assert.match(page(), /dog/);
   assert.match(page(), /削除予定リスト/);
@@ -194,8 +214,48 @@ test("when only some selected IDs still exist, DELETE reports its actual count a
 
 const cartMode = "1つずつカートに入力して追加";
 const bulkMode = "一括で入力して追加";
-const success = (word, id) => ({ word, id, message: "単語が追加されました" });
+const success = (word) => ({ word, message: "単語が追加されました" });
 const duplicate = (word) => ({ word, message: "同一単語が存在します" });
+
+test("both submission screens offer a direct return above cancel without fetching or discarding drafts", async () => {
+  const calls = mockApi(() => Response.json([cat]));
+  await mount();
+  await click("追加");
+  await click(cartMode);
+  assert.doesNotMatch(page(), /問題管理画面へ/);
+  await type(document.querySelector("#cart-word"), "dog");
+  await type(document.querySelector("#cart-meaning"), "犬");
+  await click("カートに追加");
+  await click("カートへ");
+  assert.equal(button("問題管理画面へ").nextElementSibling, button("キャンセル"));
+  assert(button("キャンセル").closest(".data-actions-confirm"));
+  await click("問題管理画面へ");
+  assert.equal(document.querySelector(".data-nav h1").textContent, "問題管理");
+  assert.equal(document.activeElement, button("追加"));
+  assert.deepEqual(methods(calls), ["GET"]);
+
+  await click("追加");
+  await click(bulkMode);
+  await type(document.querySelector("#bulk-words"), "apple,リンゴ");
+  assert.equal(button("問題管理画面へ").nextElementSibling, button("キャンセル"));
+  assert(button("キャンセル").closest(".data-actions-confirm"));
+  await click("キャンセル");
+  await click(bulkMode);
+  assert.equal(document.querySelector("#bulk-words").value, "apple,リンゴ");
+  await click("問題管理画面へ");
+  assert.equal(document.querySelector(".data-nav h1").textContent, "問題管理");
+  assert.equal(document.activeElement, button("追加"));
+  assert.deepEqual(methods(calls), ["GET"]);
+
+  await click("追加");
+  await click(bulkMode);
+  assert.equal(document.querySelector("#bulk-words").value, "apple,リンゴ");
+  await click("キャンセル");
+  await click(cartMode);
+  await click("カートへ");
+  assert.equal(document.querySelector('[aria-label="1件目の英単語"]').value, "dog");
+  assert.deepEqual(methods(calls), ["GET"]);
+});
 
 test("cart validation, changes and removal stay local; an incomplete API response keeps every draft", async () => {
   let incomplete = true;
@@ -204,7 +264,7 @@ test("cart validation, changes and removal stay local; an incomplete API respons
     if (method === "GET") return Response.json(added ? [cat, dog] : [cat]);
     if (incomplete) return Response.json([[], []]);
     added = true;
-    return Response.json([[success("dog", dog.id)], []]);
+    return Response.json([[success("dog")], []]);
   });
   await mount();
   await click("追加");
@@ -250,9 +310,8 @@ test("bulk partial success keeps only rejected rows; the other cart and local dr
     for (const item of body) {
       if (rows.some((row) => row.word === item.word)) failures.push(duplicate(item.word));
       else {
-        const id = rows.length + 1;
-        rows.push({ ...item, id, uid: cat.uid });
-        successes.push(success(item.word, id));
+        rows.push({ ...item, id: rows.length + 1, uid: cat.uid });
+        successes.push(success(item.word));
       }
     }
     return Response.json([successes, failures]);
@@ -275,14 +334,19 @@ test("bulk partial success keeps only rejected rows; the other cart and local dr
   await click("追加リクエスト");
   assert.deepEqual(calls[1].body, [{ word: "dog", meaning: "犬" }, { word: "cat", meaning: "猫" }]);
   assert.deepEqual(methods(calls), ["GET", "POST", "GET"]);
-  assert.match(page(), /同一単語が存在します/);
-  assert.match(page(), /dog/);
+  assert.match(document.querySelector(".add-feedback").textContent, /登録成功（1件）.*dog/);
+  assert.match(document.querySelector(".add-feedback").textContent, /登録失敗（1件）.*cat：同一単語が存在します/);
   assert.match(bulk().value, /cat/);
   assert.doesNotMatch(bulk().value, /dog/);
   await click("追加リクエスト");
   assert.match(bulk().value, /cat/);
+  assert.match(document.querySelector(".add-feedback").textContent, /登録失敗（1件）.*cat：同一単語が存在します/);
+  assert.doesNotMatch(document.querySelector(".add-feedback").textContent, /登録成功/);
   assert.deepEqual(methods(calls), ["GET", "POST", "GET", "POST"]);
-  await click("キャンセル");
+  await click("問題管理画面へ");
+  assert.match(document.querySelector(".data-list").textContent, /dog犬/);
+  assert.deepEqual(methods(calls), ["GET", "POST", "GET", "POST"]);
+  await click("追加");
   await click(cartMode);
   await click("カートへ");
   assert([...document.querySelectorAll("input")].some((input) => input.value === "owl"));
@@ -300,7 +364,7 @@ test("the first registration starts from an empty list and displays the word fro
   const calls = mockApi((method) => {
     if (method === "GET") return Response.json(saved ? [firstWord] : []);
     saved = true;
-    return Response.json([[success("apple", firstWord.id)], []]);
+    return Response.json([[success("apple")], []]);
   });
   await mount();
   assert.match(page(), /まだデータが登録されていません/);
@@ -328,6 +392,8 @@ test("a lost registration response preserves the draft and prevents concurrent P
   const sendButton = button("追加リクエスト");
   await act(async () => { sendButton.click(); sendButton.click(); });
   assert.deepEqual(methods(calls), ["GET", "POST"]);
+  assert.equal(button("キャンセル").disabled, true);
+  assert.equal(button("問題管理画面へ").disabled, true);
   await act(async () => rejectRequest(new TypeError("offline")));
   assert.equal(document.querySelector("#bulk-words").value, draft);
   assert(document.querySelector('[role="alert"]'));

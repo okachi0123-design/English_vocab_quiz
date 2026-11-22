@@ -199,8 +199,9 @@ export function AddQuestions({ step, onStepChange, onRegistered }: Props) {
     }
   }
 
+  const isCartInput = step === "cart-input";
   const visibleErrors = [...errors, ...bulk.errors];
-  const title = step === "cart-input" ? "カートに入力" : step === "cart-review" ? "登録予定のカート" : "一括で入力して追加";
+  const title = isCartInput ? "カートに入力" : step === "cart-review" ? "登録予定のカート" : "一括で入力して追加";
   return (
     <>
       <div className="data-body">
@@ -209,7 +210,7 @@ export function AddQuestions({ step, onStepChange, onRegistered }: Props) {
           {visibleErrors.map((message) => <li key={message}>{message}</li>)}
         </ul>}
         {result && <AddFeedback result={result} />}
-        {step === "cart-input" && (
+        {isCartInput && (
           <form className="add-entry-card" onSubmit={saveToCart}>
             <div className="data-pair">
               <label htmlFor="cart-word">英単語
@@ -253,10 +254,14 @@ export function AddQuestions({ step, onStepChange, onRegistered }: Props) {
           ))}</ul>
         </>}
       </div>
-      <div className="data-actions">
-        <button type="button" className="data-button data-cancel-add" disabled={busy}
-          onClick={() => go(step === "cart-review" ? "cart-input" : "choose")}>キャンセル</button>
-        {step === "cart-input" ? (
+      <footer className={isCartInput ? "data-actions" : "data-actions data-actions-confirm"}>
+        <div className="data-exit-actions">
+          {!isCartInput && <button type="button" className="data-button" disabled={busy}
+            onClick={() => go(null)}>問題管理画面へ</button>}
+          <button type="button" className="data-button data-cancel-add" disabled={busy}
+            onClick={() => go(step === "cart-review" ? "cart-input" : "choose")}>キャンセル</button>
+        </div>
+        {isCartInput ? (
           <div className="add-cart-actions"><span>カート：{cart.length}件</span>
             <button type="button" className="data-button data-add" onClick={() => go("cart-review")}>カートへ</button>
           </div>
@@ -265,7 +270,7 @@ export function AddQuestions({ step, onStepChange, onRegistered }: Props) {
             disabled={busy || (step === "bulk" ? !bulk.entries.length || bulk.errors.length > 0 : !cart.length)}
             onClick={submit}>{busy ? "送信中…" : "追加リクエスト"}</button>
         )}
-      </div>
+      </footer>
     </>
   );
 }

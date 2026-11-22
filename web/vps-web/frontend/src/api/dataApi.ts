@@ -14,10 +14,6 @@ interface WordResult {
   message: string;
 }
 
-interface AddedWord extends WordResult {
-  id: number;
-}
-
 const dataUrl = resolveApiBaseUrl(import.meta.env.VITE_API_BASE_URL, import.meta.env.DEV) + "/data";
 const unknownResult = "処理結果を確認できません。再送信する前に、問題管理で一覧を再取得してください。";
 
@@ -68,12 +64,11 @@ export async function fetchWords(signal?: AbortSignal): Promise<SavedWord[]> {
   return data.map(({ id, word, meaning }) => ({ id, word, meaning }));
 }
 
-export async function addQuestions(input: WordInput[]): Promise<{ added: AddedWord[]; failed: WordResult[] }> {
+export async function addQuestions(input: WordInput[]): Promise<{ added: WordResult[]; failed: WordResult[] }> {
   const data = await request("POST", input.map(({ word, meaning }) => ({ word, meaning })));
   if (!Array.isArray(data) || data.length !== 2) throw new Error(unknownResult);
   const [added, failed] = data;
-  if (!Array.isArray(added) || !added.every((item): item is AddedWord =>
-    isWordResult(item) && "id" in item && Number.isSafeInteger(item.id)) ||
+  if (!Array.isArray(added) || !added.every(isWordResult) ||
     !Array.isArray(failed) || !failed.every(isWordResult)) throw new Error(unknownResult);
 
   // The API identifies each outcome by word. Only clear drafts when every submitted word is accounted for once.

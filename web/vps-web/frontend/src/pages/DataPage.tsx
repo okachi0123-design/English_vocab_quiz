@@ -28,7 +28,10 @@ export function DataPage() {
   const addButton = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (screen === "list" && previousScreen.current === "choose") addButton.current?.focus();
+    const previous = previousScreen.current;
+    if (screen === "list" && (previous === "choose" || previous === "cart-review" || previous === "bulk")) {
+      addButton.current?.focus();
+    }
     previousScreen.current = screen;
   }, [screen]);
 
@@ -139,14 +142,10 @@ export function DataPage() {
       {browsing && <nav className="top-nav data-nav">
         <Link className="back-link" to="/"><span aria-hidden="true">⌂</span> ホームへ</Link>
         {showingList && <h1>問題管理</h1>}
-        <div className="data-tools">
-          {selecting
-            ? <button className="data-button data-cancel-remove" onClick={() => go("list")}>キャンセル</button>
-            : <>
-                <button ref={addButton} className="data-button data-add" disabled={saving} onClick={() => go("choose")}>追加</button>
-                <button className="data-button data-remove" disabled={saving || loading || !!loadError} onClick={() => go("select")}>削除</button>
-              </>}
-        </div>
+        {showingList && <div className="data-tools">
+          <button ref={addButton} className="data-button data-add" disabled={saving} onClick={() => go("choose")}>追加</button>
+          <button className="data-button data-remove" disabled={saving || loading || !!loadError} onClick={() => go("select")}>削除</button>
+        </div>}
       </nav>}
       <section className="panel data-panel">
         {loadError && <div className="data-load-error">
@@ -181,13 +180,19 @@ export function DataPage() {
                   </ul>}
             </>}
           </div>
-          {selecting && <footer className="data-actions data-actions-end">
-            <span>選択数：{selected.length}件</span>
-            <button className="data-button data-remove" disabled={!selectedWords.length}
-              onClick={() => go("confirm")}>確認画面へ</button>
+          {selecting && <footer className="data-actions">
+            <button type="button" className="data-button data-cancel-remove" onClick={() => go("list")}>キャンセル</button>
+            <div className="data-actions-end">
+              <span>選択数：{selected.length}件</span>
+              <button className="data-button data-remove" disabled={!selectedWords.length}
+                onClick={() => go("confirm")}>確認画面へ</button>
+            </div>
           </footer>}
-          {confirming && <footer className="data-actions">
-            <button className="data-button data-cancel-remove" disabled={saving} onClick={() => go("select")}>キャンセル</button>
+          {confirming && <footer className="data-actions data-actions-confirm">
+            <div className="data-exit-actions">
+              <button type="button" className="data-button" disabled={saving} onClick={() => go("list")}>問題管理画面へ</button>
+              <button className="data-button data-cancel-remove" disabled={saving} onClick={() => go("select")}>キャンセル</button>
+            </div>
             <button className="data-button data-remove" disabled={saving || !selectedWords.length}
               onClick={() => void save()}>{saving ? "削除中…" : "削除"}</button>
           </footer>}
