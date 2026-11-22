@@ -59,7 +59,6 @@ oauth.register(
     client_secret = CLIENT_SECRET,
     client_kwargs={
         'scope': 'email openid profile',
-        'prompt': 'select_account',
         "code_challenge_method": "S256",
     }
 )
