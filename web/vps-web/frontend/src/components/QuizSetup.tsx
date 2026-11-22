@@ -1,49 +1,32 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type ReactNode, useState } from "react";
 import { MAX_ATTEMPT_COUNT, MIN_ATTEMPT_COUNT } from "../api/quizApi";
 
 type QuizSetupProps = {
   loading: boolean;
-  error: string;
-  onStart: (password: string, count: number) => Promise<void>;
+  error: ReactNode;
+  onStart: (count: number) => Promise<void>;
 };
 
 export function QuizSetup({ loading, error, onStart }: QuizSetupProps) {
-  const [password, setPassword] = useState("");
   const [count, setCount] = useState(String(MIN_ATTEMPT_COUNT));
   const [validationError, setValidationError] = useState("");
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     const parsedCount = Number(count);
-    if (!password) {
-      setValidationError("パスワードを入力してください。");
-      return;
-    }
     if (!Number.isInteger(parsedCount) || parsedCount < MIN_ATTEMPT_COUNT || parsedCount > MAX_ATTEMPT_COUNT) {
       setValidationError(`問題数は${MIN_ATTEMPT_COUNT}〜${MAX_ATTEMPT_COUNT}の整数で入力してください。`);
       return;
     }
     setValidationError("");
-    await onStart(password, parsedCount);
+    await onStart(parsedCount);
   };
 
   return (
     <section className="panel setup-panel" aria-labelledby="setup-title">
-      <p className="eyebrow">QUIZ SETUP</p>
-      <h1 id="setup-title">挑戦する準備はできましたか？</h1>
-      <p className="lead">英単語の日本語の意味を入力して、語彙力をチェックしましょう。</p>
+      <h1 id="setup-title">挑戦数を入力してクイズに挑戦しましょう！</h1>
 
       <form onSubmit={handleSubmit} className="setup-form">
-        <label>
-          APIパスワード
-          <input
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            autoComplete="current-password"
-            disabled={loading}
-          />
-        </label>
         <label>
           挑戦する問題数
           <input

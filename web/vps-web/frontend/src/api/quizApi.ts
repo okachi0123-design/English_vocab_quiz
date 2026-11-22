@@ -3,8 +3,7 @@ import { resolveApiBaseUrl } from "./apiConfig";
 
 const API_BASE_URL = resolveApiBaseUrl(import.meta.env.VITE_API_BASE_URL, import.meta.env.DEV);
 export const LOGIN_URL = `${API_BASE_URL}/login`;
-const PASSWORD_HEADER = "enterd-password";
-const AUTH_ERROR = "パスワードが正しくありません";
+export const NO_WORDS_MESSAGE = "単語が存在しません";
 export const MIN_ATTEMPT_COUNT = 1;
 export const MAX_ATTEMPT_COUNT = 99;
 
@@ -42,6 +41,10 @@ async function readJson(response: Response, failureMessage: string): Promise<unk
   }
 
   if (!response.ok) {
+    if (response.status === 404 && typeof data === "object" && data !== null &&
+      "detail" in data && data.detail === NO_WORDS_MESSAGE) {
+      throw new QuizApiError(NO_WORDS_MESSAGE, response.status);
+    }
     if (response.status === 401 || response.status === 403) {
       throw new QuizApiError(authenticationMessage(data, response.status), response.status);
     }
@@ -49,9 +52,6 @@ async function readJson(response: Response, failureMessage: string): Promise<unk
       ? "サーバーでエラーが発生しました。時間をおいて再度お試しください。"
       : failureMessage;
     throw new QuizApiError(`${message}（HTTP ${response.status}）`, response.status);
-  }
-  if (data === AUTH_ERROR) {
-    throw new QuizApiError(AUTH_ERROR);
   }
   return data;
 }
@@ -98,14 +98,13 @@ export async function logout(): Promise<void> {
   }
 }
 
-export async function fetchQuestions(attemptCount: number, password: string): Promise<Question[]> {
+export async function fetchQuestions(attemptCount: number): Promise<Question[]> {
   try {
     if (!Number.isInteger(attemptCount) || attemptCount < MIN_ATTEMPT_COUNT || attemptCount > MAX_ATTEMPT_COUNT) {
       throw new QuizApiError(`問題数は${MIN_ATTEMPT_COUNT}〜${MAX_ATTEMPT_COUNT}の整数で入力してください。`);
     }
     const response = await fetch(quizUrl(`?attempt_count=${encodeURIComponent(attemptCount)}`), {
       credentials: "include",
-      headers: { [PASSWORD_HEADER]: password },
     });
     const data = await readJson(response, "問題の取得に失敗しました。");
     if (!Array.isArray(data) || !data.every(isQuestion)) {
@@ -117,15 +116,12 @@ export async function fetchQuestions(attemptCount: number, password: string): Pr
   }
 }
 
-export async function submitAnswers(answers: Answer[], password: string): Promise<QuizResult> {
+export async function submitAnswers(answers: Answer[]): Promise<QuizResult> {
   try {
     const response = await fetch(quizUrl(), {
       method: "POST",
       credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        [PASSWORD_HEADER]: password,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(answers),
     });
     const data = await readJson(response, "採点に失敗しました。");

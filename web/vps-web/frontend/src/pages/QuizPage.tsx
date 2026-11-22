@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { fetchQuestions, QuizApiError, submitAnswers } from "../api/quizApi";
+import { fetchQuestions, NO_WORDS_MESSAGE, QuizApiError, submitAnswers } from "../api/quizApi";
 import { QuestionCard } from "../components/QuestionCard";
 import { QuizSetup } from "../components/QuizSetup";
 import { ResultSummary } from "../components/ResultSummary";
@@ -9,13 +9,15 @@ import type { Question, QuizPhase, QuizResult } from "../types/quiz";
 export function QuizPage() {
   const navigate = useNavigate();
   const [phase, setPhase] = useState<QuizPhase>("setup");
-  const [password, setPassword] = useState("");
   const [requestedCount, setRequestedCount] = useState(0);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<QuizResult | null>(null);
+  const errorContent = error === NO_WORDS_MESSAGE
+    ? <>{error}。<Link to="/data">問題管理を開く</Link></>
+    : error;
 
   const answeredCount = useMemo(
     () => questions.filter((question) => (answers[question.id] ?? "").trim() !== "").length,
@@ -26,7 +28,6 @@ export function QuizPage() {
     if (caught instanceof QuizApiError && caught.isAuthenticationError) {
       setQuestions([]);
       setAnswers({});
-      setPassword("");
       setResult(null);
       navigate("/", { replace: true, state: { authError: caught.message } });
       return;
@@ -34,17 +35,16 @@ export function QuizPage() {
     setError(caught instanceof QuizApiError ? caught.message : fallback);
   };
 
-  const startQuiz = async (enteredPassword: string, count: number) => {
+  const startQuiz = async (count: number) => {
     if (loading) return;
     setLoading(true);
     setError("");
     try {
-      const fetchedQuestions = await fetchQuestions(count, enteredPassword);
+      const fetchedQuestions = await fetchQuestions(count);
       if (fetchedQuestions.length === 0) {
-        setError("出題できる問題がありませんでした。");
+        setError(NO_WORDS_MESSAGE);
         return;
       }
-      setPassword(enteredPassword);
       setRequestedCount(count);
       setQuestions(fetchedQuestions);
       setAnswers(Object.fromEntries(fetchedQuestions.map((question) => [question.id, ""])));
@@ -64,7 +64,6 @@ export function QuizPage() {
     try {
       const quizResult = await submitAnswers(
         questions.map((question) => ({ id: question.id, meaning: answers[question.id] ?? "" })),
-        password,
       );
       setResult(quizResult);
       setPhase("result");
@@ -86,7 +85,6 @@ export function QuizPage() {
 
   const retry = () => {
     setPhase("setup");
-    setPassword("");
     setRequestedCount(0);
     setQuestions([]);
     setAnswers({});
@@ -98,12 +96,11 @@ export function QuizPage() {
   return (
     <main className="page quiz-page">
       <nav className="top-nav" aria-label="ページナビゲーション">
-        <Link to="/" className="brand">EVQ</Link>
-        <Link to="/" className="back-link">トップへ戻る</Link>
+        <Link to="/" className="brand" aria-label="ホームへ"><span aria-hidden="true">⌂</span></Link>
       </nav>
 
       {phase === "setup" ? (
-        <QuizSetup loading={loading} error={error} onStart={startQuiz} />
+        <QuizSetup loading={loading} error={errorContent} onStart={startQuiz} />
       ) : (
         <section className="quiz-content">
           {phase === "result" && result ? <ResultSummary result={result} onRetry={retry} /> : (
@@ -138,7 +135,7 @@ export function QuizPage() {
 
           {phase === "answering" && (
             <div className="submit-area">
-              {error && <p className="error" role="alert">{error}</p>}
+              {errorContent && <p className="error" role="alert">{errorContent}</p>}
               <button id="submit-answers" className="primary-button" type="button" onClick={gradeQuiz} disabled={loading}>
                 {loading ? "採点しています…" : "回答を送信して採点"}
               </button>

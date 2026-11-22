@@ -29,4 +29,4 @@ def test_get_all_questions():
 
 def test_get_no_questions():
     result = main.get_all_questions(request_mock, db_no_mock)
-    assert result == "まだデータが登録されていません"
+    assert result == []

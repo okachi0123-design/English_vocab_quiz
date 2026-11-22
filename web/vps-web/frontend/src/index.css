@@ -26,6 +26,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 h1, h2, p { margin-top: 0; }
 h1 { margin-bottom: 18px; font-size: clamp(2rem, 5vw, 3.5rem); line-height: 1.12; }
 .lead { max-width: 540px; margin: 0 auto 32px; color: #646777; line-height: 1.8; }
+.hero-panel h1 { font-size: clamp(1.75rem, 6vw, 3rem); white-space: pre-wrap; text-wrap: balance; }
+.hero-panel .lead { font-size: .9rem; }
 
 .primary-button, .secondary-button {
   border: 0;
@@ -50,7 +52,7 @@ h1 { margin-bottom: 18px; font-size: clamp(2rem, 5vw, 3.5rem); line-height: 1.12
 .auth-success { margin: 0 0 24px; color: #258442; font-size: .9rem; line-height: 1.7; }
 
 .top-nav { width: min(100%, 760px); margin: 0 auto 18px; display: flex; align-items: center; justify-content: space-between; }
-.brand { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; color: white; background: #5a45da; font-weight: 900; text-decoration: none; }
+.brand { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; color: white; background: #5a45da; font: bold 1.65rem/1 sans-serif; text-decoration: none; }
 .back-link { color: #454858; font-size: .9rem; font-weight: 700; text-decoration: none; }
 .setup-form { display: grid; gap: 20px; max-width: 470px; margin-top: 32px; }
 .setup-form label { display: grid; gap: 8px; font-size: .9rem; font-weight: 700; }

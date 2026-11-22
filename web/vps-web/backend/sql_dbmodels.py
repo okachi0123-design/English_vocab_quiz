@@ -9,7 +9,7 @@ class SQLQuestion(Base):
     __tablename__ = "eng_vocabulary_words"
 
     uid = Column(Integer, ForeignKey("webquiz_users.uid"), primary_key=True)
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     word = Column(String)
     meaning = Column(String)
 

@@ -196,10 +196,7 @@ def check_and_counter(request: Request, answers: list[Answer], db: Session = Dep
 def get_all_questions(request: Request, db: Session = Depends(get_db), login_check_result = Depends(login_checker)):
     uid = request.session.get('uid')
     questions = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.uid == uid).all()
-    if not questions:
-        return "まだデータが登録されていません"
-    else:
-        return questions
+    return questions
 
 @app.put("/api/data")
 def replace_questions(request: Request, new_data: Question ,db: Session = Depends(get_db), login_check_result = Depends(login_checker), word_exist_checker_result = Depends(word_exist_checker), origin_check_result = Depends(origin_checker)):
@@ -217,15 +214,10 @@ def replace_questions(request: Request, new_data: Question ,db: Session = Depend
 
 
 @app.post("/api/data")
-def add_question(request: Request, new_questions: list[NewQuestion], db: Session = Depends(get_db), login_check_result = Depends(login_checker), word_exist_checker_result = Depends(word_exist_checker), origin_check_result = Depends(origin_checker)):
+def add_question(request: Request, new_questions: list[NewQuestion], db: Session = Depends(get_db), login_check_result = Depends(login_checker), origin_check_result = Depends(origin_checker)):
     error_message = []
     success_message = []
     uid = request.session.get('uid')
-    latest_id_row = db.query(sql_dbmodels.SQLQuestion.id).filter(sql_dbmodels.SQLQuestion.uid == uid).order_by(sql_dbmodels.SQLQuestion.id.desc()).first()
-    if latest_id_row is None:
-        new_data_id = 1
-    else:
-        new_data_id = latest_id_row.id + 1
     for new_question in new_questions:
         same_word = db.query(sql_dbmodels.SQLQuestion).filter(sql_dbmodels.SQLQuestion.uid == uid, sql_dbmodels.SQLQuestion.word == new_question.word).first()
 
@@ -236,17 +228,15 @@ def add_question(request: Request, new_questions: list[NewQuestion], db: Session
             })
 
         else:
-            db.add(sql_dbmodels.SQLQuestion(**new_question.model_dump(), uid=uid, id=new_data_id))
+            db.add(sql_dbmodels.SQLQuestion(**new_question.model_dump(), uid=uid,))
             db.commit()
             success_message.append({
-                "id": new_data_id,
                 "word": new_question.word,
                 "message": "単語が追加されました"
             })
-            new_data_id = new_data_id + 1
 
+    
     return success_message, error_message
-
 
 @app.delete("/api/data")
 def delete_question(request: Request, delete_ids: list[int], db: Session = Depends(get_db), login_check_result = Depends(login_checker), origin_check_result = Depends(origin_checker)):
@@ -329,3 +319,4 @@ async def auth(request: Request, db: Session = Depends(get_db)): #認可コー�
 def logout(request: Request, origin_check_result = Depends(origin_checker)):
         request.session.clear()
         return RedirectResponse(url=f"{FRONTEND_URL}/?status=logouted")
+

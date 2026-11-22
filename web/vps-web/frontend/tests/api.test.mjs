@@ -9,8 +9,8 @@ const questions = [{ id: 1, word: "implement" }];
 const answers = [{ id: 1, meaning: "実行する" }];
 const result = { results: [{ result: "〇" }], attempt: 1, score: 1, percentage: 100, message: "正解です" };
 const operations = [
-  ["GET", () => fetchQuestions(2, "test-password")],
-  ["POST", () => submitAnswers(answers, "test-password")],
+  ["GET", () => fetchQuestions(2)],
+  ["POST", () => submitAnswers(answers)],
 ];
 
 test("logout posts with cookies and stops the backend 307 redirect", async () => {
@@ -64,30 +64,36 @@ for (const value of ["javascript:alert(1)", "data:text/html,x", "//evil.example/
   });
 }
 
-test("GET preserves count, password header, cookies and question shape", async () => {
+test("GET sends the question count with session credentials", async () => {
   globalThis.fetch = async (url, options) => {
     assert.equal(url, "/api/quiz?attempt_count=2");
     assert.equal(options.credentials, "include");
-    assert.equal(options.headers["enterd-password"], "test-password");
+    assert.equal(new Headers(options.headers).has("enterd-password"), false);
     return Response.json(questions);
   };
-  assert.deepEqual(await fetchQuestions(2, "test-password"), questions);
+  assert.deepEqual(await fetchQuestions(2), questions);
 });
 
-test("POST preserves answers, password header, cookies and grading shape", async () => {
+test("POST sends answers with session credentials and returns the grading result", async () => {
   globalThis.fetch = async (url, options) => {
     assert.equal(url, "/api/quiz");
     assert.equal(options.method, "POST");
     assert.equal(options.credentials, "include");
-    assert.equal(options.headers["enterd-password"], "test-password");
+    assert.equal(new Headers(options.headers).has("enterd-password"), false);
     assert.equal(options.headers["Content-Type"], "application/json");
     assert.deepEqual(JSON.parse(options.body), answers);
     return Response.json(result);
   };
-  assert.deepEqual(await submitAnswers(answers, "test-password"), result);
+  assert.deepEqual(await submitAnswers(answers), result);
 });
 
 for (const [method, operation] of operations) {
+  test(method + " distinguishes the no-words response from other HTTP 404 errors", async () => {
+    globalThis.fetch = async () => Response.json({ detail: "単語が存在しません" }, { status: 404 });
+    await assert.rejects(operation, { message: "単語が存在しません", status: 404 });
+    globalThis.fetch = async () => Response.json({ detail: "Not Found" }, { status: 404 });
+    await assert.rejects(operation, /HTTP 404/);
+  });
   for (const status of [401, 403]) {
     test(method + " " + status + " retains FastAPI detail and authentication status", async () => {
       const message = status === 401 ? "ログインしてください" : "認証が許可されていません";
@@ -122,11 +128,6 @@ for (const [method, operation] of operations) {
     await assert.rejects(operation, (error) => !error.isAuthenticationError && error.message.includes("接続できません"));
   });
 
-  test(method + " legacy password rejection stays a password error", async () => {
-    globalThis.fetch = async () => Response.json("パスワードが正しくありません");
-    await assert.rejects(operation, (error) => !error.isAuthenticationError && error.message === "パスワードが正しくありません");
-  });
-
   test(method + " invalid successful JSON is rejected", async () => {
     globalThis.fetch = async () => Response.json({ unexpected: true });
     await assert.rejects(operation, /予期しないレスポンス/);
@@ -136,11 +137,11 @@ for (const [method, operation] of operations) {
 test("invalid question counts do not send a request", async () => {
   globalThis.fetch = async () => assert.fail("Invalid counts must not reach the API");
   for (const count of [0, 100, 1.5, NaN]) {
-    await assert.rejects(() => fetchQuestions(count, "test-password"), /問題数/);
+    await assert.rejects(() => fetchQuestions(count), /問題数/);
   }
 });
 
 test("grading result length must match the submitted answer count", async () => {
   globalThis.fetch = async () => Response.json({ ...result, results: [] });
-  await assert.rejects(() => submitAnswers(answers, "test-password"), /予期しないレスポンス/);
+  await assert.rejects(() => submitAnswers(answers), /予期しないレスポンス/);
 });

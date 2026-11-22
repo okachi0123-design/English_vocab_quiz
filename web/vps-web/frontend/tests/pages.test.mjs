@@ -43,8 +43,7 @@ async function fill(selector, value) {
     input.dispatchEvent(new window.Event("input", { bubbles: true }));
   });
 }
-async function start(count = "2", password = "test-password") {
-  await fill('input[type="password"]', password);
+async function start(count = "2") {
   await fill('input[type="number"]', count);
   await act(async () => {
     document.querySelector("form").dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
@@ -60,9 +59,16 @@ afterEach(async () => {
   document.body.innerHTML = "";
 });
 
-test("home shows the requested menu and normal login anchor, Coming Soon is disabled", async () => {
+test("home links to problem management and login, with only previous results disabled", async () => {
   await mount("/");
-  assert(text().includes("オリジナル英単語クイズです。挑戦するにはGoogleログインと管理者による利用許可が必要です。"));
+  assert.equal(document.querySelector("h1").textContent, "MY  VOCABULARY QUIZ");
+  const description = document.querySelector(".hero-panel .lead");
+  assert.deepEqual([...description.childNodes].filter((node) => node.nodeType === dom.window.Node.TEXT_NODE)
+    .map((node) => node.textContent.trim()), [
+    "好きな英単語を登録すると",
+    "あなただけの英単語クイズに挑戦できます！",
+    "挑戦にはGoogleによるログインが必要です",
+  ]);
   assert.equal(document.querySelector('[role="status"], [role="alert"]'), null);
   const login = document.querySelector('a[href="/api/login"]');
   assert.equal(login.textContent, "Googleでログイン");
@@ -71,18 +77,19 @@ test("home shows the requested menu and normal login anchor, Coming Soon is disa
   assert.equal(rows.length, 4);
   assert.equal(rows[0].textContent, "挑戦する");
   assert(rows[1].textContent.startsWith("前回結果"));
-  assert(rows[2].textContent.startsWith("問題追加"));
+  assert.equal(rows[2].textContent, "問題管理");
+  assert.equal(rows[2].getAttribute("href"), "/data");
   assert(rows[3].classList.contains("home-auth-actions"));
   assert.equal(rows[3].children[0], login);
   assert.equal(rows[3].children[1].textContent, "ログアウト");
   const disabled = [...document.querySelectorAll("button:disabled")];
-  assert.equal(disabled.length, 2);
+  assert.equal(disabled.length, 1);
   assert(disabled[0].textContent.includes("前回結果"));
-  assert(disabled[1].textContent.includes("問題追加"));
   assert(disabled.every((button) => button.textContent.includes("Coming Soon")));
   await act(async () => document.querySelector('a[href="/quiz"]').click());
   assert.equal(currentPath(), "/quiz");
-  assert(document.querySelector('input[type="password"]'));
+  assert(document.querySelector('input[type="number"]'));
+  assert.equal(document.querySelector('input[type="password"]'), null);
 });
 
 test("direct /quiz access starts empty and waits for a successful API response", async () => {
@@ -99,6 +106,25 @@ test("direct /quiz access starts empty and waits for a successful API response",
 });
 
 for (const method of ["GET", "POST"]) {
+  test(method + " with no registered words offers a link to the empty management page", async () => {
+    const calls = [];
+    globalThis.fetch = async (url, options = {}) => {
+      calls.push([url, options.method ?? "GET"]);
+      if (url === "/api/data") return Response.json([]);
+      if (method === "POST" && options.method !== "POST") return Response.json(questions);
+      return Response.json({ detail: "単語が存在しません" }, { status: 404 });
+    };
+    await mount();
+    await start();
+    if (method === "POST") await grade();
+    const error = document.querySelector('[role="alert"]');
+    assert(error.textContent.includes("単語が存在しません"));
+    await act(async () => error.querySelector('a[href="/data"]').click());
+    assert.equal(currentPath(), "/data");
+    assert.deepEqual(calls.at(-1), ["/api/data", "GET"]);
+    assert(text().includes("まだデータが登録されていません"));
+  });
+
   for (const status of [401, 403]) {
     test(method + " " + status + " navigates home with the exact API message and clears quiz data", async () => {
       const message = status === 401 ? "ユーザー情報が登録されていません" : "認証が許可されていません";
@@ -119,7 +145,7 @@ for (const method of ["GET", "POST"]) {
       await act(async () => document.querySelector('a[href="/quiz"]').click());
       assert.equal(currentPath(), "/quiz");
       assert.equal(document.querySelector(".question-list"), null);
-      assert.equal(document.querySelector('input[type="password"]').value, "");
+      assert.equal(document.querySelector('input[type="number"]').value, "1");
     });
   }
 }
@@ -135,19 +161,18 @@ test("API messages are rendered as text, without injecting HTML", async () => {
 });
 
 for (const method of ["GET", "POST"]) {
-  for (const failure of ["500", "network", "password"]) {
+  for (const failure of ["500", "network"]) {
     test(method + " " + failure + " stays on quiz with a specific error and allows retry", async () => {
       globalThis.fetch = async (_url, options) => {
         if (method === "POST" && options.method !== "POST") return Response.json(questions);
         if (failure === "network") throw new TypeError("Failed to fetch");
-        if (failure === "password") return Response.json("パスワードが正しくありません");
         return new Response("Internal Server Error", { status: 500 });
       };
       await mount();
       await start();
       if (method === "POST") await grade();
       assert.equal(currentPath(), "/quiz");
-      const expected = { "500": "HTTP 500", network: "接続できません", password: "パスワードが正しくありません" }[failure];
+      const expected = failure === "500" ? "HTTP 500" : "接続できません";
       assert(document.querySelector('[role="alert"]').textContent.includes(expected));
       if (method === "POST") {
         assert.equal(document.querySelectorAll(".question-row").length, 2);
@@ -169,7 +194,6 @@ test("question count, answers, grading results and retry preserve the existing f
   await mount();
   await start("3");
   assert.equal(calls[0].url, "/api/quiz?attempt_count=3");
-  assert.equal(calls[0].headers["enterd-password"], "test-password");
   assert.equal(calls[0].credentials, "include");
   assert(text().includes("2問を出題"));
   await fill("#answer-0", "実行する");
@@ -177,7 +201,6 @@ test("question count, answers, grading results and retry preserve the existing f
   await grade();
   assert.equal(calls[1].credentials, "include");
   assert.deepEqual(JSON.parse(calls[1].body), [{ id: 1, meaning: "実行する" }, { id: 2, meaning: "間違い" }]);
-  assert.equal(calls[1].headers["enterd-password"], "test-password");
   assert(text().includes("2問中 1問正解"));
   assert(text().includes("正解：検討する"));
   assert.equal(document.querySelectorAll(".question-row.correct").length, 1);
@@ -185,7 +208,7 @@ test("question count, answers, grading results and retry preserve the existing f
   await act(async () => document.querySelector(".result-summary button").click());
   assert.equal(currentPath(), "/quiz");
   assert.equal(document.querySelector(".question-list"), null);
-  assert.equal(document.querySelector('input[type="password"]').value, "");
+  assert.equal(document.querySelector('input[type="number"]').value, "1");
   assert.equal(window.localStorage.length, 0);
   assert.equal(window.sessionStorage.length, 0);
 });
@@ -217,7 +240,7 @@ for (const [authResult, message] of authResultCases) {
     assert.equal(notice.textContent, message);
     assert.equal(notice.classList.contains("error"), authResult !== "allowed");
     assert(document.querySelector('a[href="/api/login"]'));
-    assert.equal(document.querySelectorAll("button:disabled").length, 2);
+    assert.equal(document.querySelectorAll("button:disabled").length, 1);
     assert.equal(document.querySelector(".question-list"), null);
   });
 }
@@ -245,7 +268,7 @@ test("callback message disappears after navigating away and returning without th
   assert.equal(document.querySelector('[role="status"]').textContent, "ログインに成功しました。");
   await act(async () => document.querySelector('a[href="/quiz"]').click());
   assert.equal(currentPath(), "/quiz");
-  await act(async () => document.querySelector(".back-link").click());
+  await act(async () => document.querySelector('a[aria-label="ホームへ"]').click());
   assert.equal(currentPath(), "/");
   assert.equal(document.querySelector('[role="status"], [role="alert"]'), null);
 });
@@ -348,7 +371,7 @@ test("logout message disappears after navigating away and returning without its 
   await mount("/?status=logouted");
   assert.equal(document.querySelector('[role="status"]').textContent, "ログアウトしました");
   await act(async () => document.querySelector('a[href="/quiz"]').click());
-  await act(async () => document.querySelector(".back-link").click());
+  await act(async () => document.querySelector('a[aria-label="ホームへ"]').click());
   assert.equal(document.querySelector('[role="status"], [role="alert"]'), null);
 });
 

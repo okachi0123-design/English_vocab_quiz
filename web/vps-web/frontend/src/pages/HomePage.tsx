@@ -39,9 +39,12 @@ export function HomePage() {
   return (
     <main className="page home-page">
       <section className="panel hero-panel">
-        <p className="eyebrow">ENGLISH VOCAB QUIZ</p>
-        <h1>あなたの英単語力を<br />試してみよう。</h1>
-        <p className="lead">オリジナル英単語クイズです。挑戦するにはGoogleログインと管理者による利用許可が必要です。</p>
+        <h1 lang="en">MY  VOCABULARY QUIZ</h1>
+        <p className="lead">
+          好きな英単語を登録すると<br />
+          あなただけの英単語クイズに挑戦できます！<br />
+          挑戦にはGoogleによるログインが必要です
+        </p>
         {authMessage && (
           <p className={isAuthSuccess ? "auth-success" : "error home-error"} role={isAuthSuccess ? "status" : "alert"}>
             {authMessage}
@@ -52,7 +55,7 @@ export function HomePage() {
           <div className="home-menu">
             <Link className="primary-button button-link" to="/quiz">挑戦する</Link>
             <button className="secondary-button" type="button" disabled>前回結果 <span className="coming-soon">Coming Soon</span></button>
-            <button className="secondary-button" type="button" disabled>問題追加 <span className="coming-soon">Coming Soon</span></button>
+            <Link className="secondary-button button-link" to="/data">問題管理</Link>
             <div className="home-auth-actions">
               <a className="secondary-button button-link" href={LOGIN_URL}>Googleでログイン</a>
               <button className="secondary-button" type="button" onClick={handleLogout} disabled={loggingOut}>

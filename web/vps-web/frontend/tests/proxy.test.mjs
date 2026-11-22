@@ -54,7 +54,7 @@ test("real Vite proxy forwards login/logout redirects, session cookies and exist
     assert.equal(login.headers.get("location"), "https://accounts.google.com/o/oauth2/v2/auth?fixture=true");
     assert(login.headers.get("set-cookie").includes("session=test-session"));
     await login.text();
-    const headers = { Cookie: "session=test-session", "enterd-password": "test-password" };
+    const headers = { Cookie: "session=test-session" };
     const get = await fetch(origin + "/api/quiz?attempt_count=1", { headers });
     assert.equal(get.status, 200);
     assert.deepEqual(await get.json(), [{ id: 1, word: "implement" }]);
@@ -65,22 +65,20 @@ test("real Vite proxy forwards login/logout redirects, session cookies and exist
     assert.equal(post.status, 200);
     assert.equal((await post.json()).score, 1);
     const logout = await fetch(origin + "/api/logout", {
-      method: "POST", headers: { Cookie: "session=test-session" }, redirect: "manual",
+      method: "POST", headers, redirect: "manual",
     });
     assert.equal(logout.status, 307);
     assert.equal(logout.headers.get("location"), "http://localhost:5173/?status=logouted");
     assert.match(logout.headers.get("set-cookie"), /session=null;.*Expires=Thu, 01 Jan 1970/);
     await logout.text();
     assert.equal(requests[3].headers.cookie, "session=test-session");
-    assert.equal(requests[3].headers["enterd-password"], undefined);
     assert.equal(requests[3].body, "");
     assert.deepEqual(requests.map(({ url, method }) => [method, url]), [
       ["GET", "/api/login"], ["GET", "/api/quiz?attempt_count=1"], ["POST", "/api/quiz"], ["POST", "/api/logout"],
     ]);
     assert.equal(requests[1].headers.cookie, "session=test-session");
     assert.equal(requests[2].headers.cookie, "session=test-session");
-    assert.equal(requests[1].headers["enterd-password"], "test-password");
-    assert.equal(requests[2].headers["enterd-password"], "test-password");
+    assert(requests.every(({ headers }) => headers["enterd-password"] === undefined));
     assert.deepEqual(JSON.parse(requests[2].body), answers);
     // FastAPI request.url_for must see its own host, keeping the registered callback on port 8000 in normal development.
     assert.equal(requests[0].headers.host, `127.0.0.1:${backend.address().port}`);
