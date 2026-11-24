@@ -3967,10 +3967,36 @@ access_log /var/log/nginx/access.log webquiz_safe;
 ### 次回やること
 - 同様事例の調査
 
-## 2026-11-23
+## 2026-11-24
 ### 作業内容
 #### フィッシング警告　同様事例の調査
-- 
+- **事例**
+- OAuth2   認可コードフローでの警告
+- [Google warning - Deceptive site ahead on OAuth2 authorization code grant flow - Google Search Central Community](https://support.google.com/webmasters/thread/235924499/google-warning-deceptive-site-ahead-on-oauth2-authorization-code-grant-flow?hl=en-GB)
+- **現象**
+- 一部のユーザーにDeceptive aheadと書かれた赤い画面が表示される
+- `redirect_uri`と書かれたURL→リダイレクトの時点でエラーが発生している
+- Search Consoleには情報がない
+- 誤検知として報告すると解決扱いになるが、数日後に再発する
+- リダイレクトのURLに含まれるcodeパラメータが悪さをしているかもしれないと投稿者は推測している
+- 誤検知の報告をすると一時的に治るが、数日後に再発する
+
+- **共通事項**
+‐ 画面表示
+- Search Consoleの検出結果
+- リダイレクトのフローでエラーが発生している
+- **相違事項**
+- 趣味の個人開発ではなく、1日10万件以上のリクエストがあるサービス
+- 定期的に回復するとは書かれていない
+- 解決したかどうかは未確認
+- ドメインが無料ドメインではない可能性もある
+
+**考察**
+- 検知のタイミングやSearch Consoleの結果から同様の問題の可能性が高い
+- チャットを見た感じでは未解決
+- 誤検知報告がよさそう
+- 他の事例も探す
+
 ### 設計・判断
 ### 学んだこと
 ### エラー・解決
