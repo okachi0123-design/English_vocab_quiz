@@ -3807,6 +3807,7 @@ PRIMARY KEY (uid, id);
 - 一回目の転送は本番に影響がないので-nを消す
 - `sudo visudo -f /etc/sudoers.d/webquiz-deploy`でサービス再起動用に作ったsudoersファイルに `murabito ALL=(root) NOPASSWD: /usr/bin/rsync -avzn  --exclude=.env --exclude=.venv/ --exclude=__pycache__/ --exclude=venv.sh --chown=root\:webquiz /home/murabito/deploy-staging/backend/ /opt/webquiz/`を追加
 - ドライランで成功を確認
+- サービスを停止して中断
 ### 設計・判断
 ### 学んだこと
 ### エラー・解決
@@ -3831,4 +3832,204 @@ WHERE sequencename LIKE 'eng_vocabulary_words_id_seq%';
 ALTER TABLE eng_vocabulary_words
 ALTER COLUMN id RESTART WITH 61;
 ```
+### 次回やること
+
+## 2026-11-22
+### 作業内容
+#### 本番環境へCD実行
+- ドライランを解除
+- NOPASSWD設定をした`Deploy backend to Production`のコードのドライランも解除
+- `requirements.txt`のインストールも必要と気づいた
+- CDのワークフローに追加
+```
+      - name: Install Python Dependencies
+        run: |
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            "sudo -n /opt/webquiz/.venv/bin/python3 -m pip install -r /opt/webquiz/requirements.txt"
+```
+- `pip install`では、パッケージのビルドなどでPythonコードが実行されることがあり、`requirements.txt`に絞っていたとしてもNOPASSWDを与えるのは危険
+- LLMは仮想環境の所有者をクイズアプリの実行ユーザーの`webquiz`に変更することを提案　←　FastAPIが奪われた時に.venvを書き換えられるのは危険だと指摘
+- デプロイ専用ユーザ―`deploy`を作成して実行させる方針に変更
+##### デプロイ専用ユーザー登録と適用
+- ユーザー追加→.venv権限変更 `755 deploy deploy`→/opt/webquizにアクセスできるように権限の変更→`sudo -u deploy`をstepに登録→`sudo -u deploy`にNOPASS権限追加
+- ユーザーの追加`sudo useradd -M -s -user/sbin/nologin "d
+eploy"`
+- .venv権限変更`sudo chown deploy:deploy /opt/webquiz/.venv`
+- webquizグループに追加して/opt/webquizにアクセス許可`sudo usermod -aG webquiz deploy`
+- `sudo -u`に変更して、Install Python Dependenciesの実行ユーザーをdeployに変更`"sudo -n -u deploy /opt/webquiz/.venv/bin/python3 -m pip install -r /opt/webquiz/requirements.txt"`
+- `murabito ALL=(deploy) NOPASSWD: /opt/webquiz/.venv/bin/python3 -m pip install -r /opt/webquiz/requirements.txt`を`/sudoers.d/webquiz-deploy`に登録してNOPASSでdeployユーザーの権限で`pip install`できるように設定
+
+#### CD実行
+- DB以外のバックアップを取得（シェルスクリプト）
+```
+#!/bin/bash
+set -e                                                                          sudo tar -czf ~/backups/webquiz_backend_backup.tar.gz -C /opt webquiz
+
+sudo tar -czf ~/backups/webquiz_frontend_backup.tar.gz -C /var/www webquiz
+
+sudo cp "$(systemctl show -p FragmentPath --value webquiz.service)" ~/backups/webquiz.service.backup
+
+sudo chmod 600 ~/backups/*.tar.gz ~/backups/webquiz.service.
+backup
+
+echo "バックアップ完了"
+```
+- Push実行
+- ＊`in-active`状態は`restart`でも起動可能
+- （`git rm --cached web/vps-web/frontend/tsconfig.app.tsbuildinfo`,`echo "*.tsbuildinfo" >> .gitignore`を実行してTypeScriptのビルド時のキャッシュファイルをpushしないように設定）
+- CI,CD完了を確認
+
+#### CI/CD確認
+‐ アプリを一時停止中なのでCI失敗時にCDの実行が止まるかを中断時ついでに確認する
+- ダミー用テストファイルを作成
+```
+def test_dummy():
+    assert False
+```
+- pytest実行で失敗を確認
+- push
+- CIがFailed、CDがSkippedになっていることを確認
+- deily-devlogを保存して作業中断
+### 設計・判断
+#### UI見直し
+- 実際に体験してUIを最適化した
+- 削除画面と追加画面の配置の統一「キャンセル」の位置を追加画面と同じが所に揃え、「問題一覧へ」を両方のリクエスト画面に追加した
+#### client_kwargs設定の変更
+- テスト時にOIDCが実行できているか毎回確認するために`client_kwargs`設定に`'prompt': 'select_account'`を追加して、毎回アカウント選択を行う設定にしていた　アプリがある程度完成してきたのでこの設定を解除した
+### 学んだこと
+### エラー・解決
+#### フロントエンドの不具合修正
+- １．問題追加時に成功していても「追加処理結果を確認できない」というエラーが表示される
+- ２．問題追加画面に、元の画面へ戻るボタンがあらず、キャンセルボタンで戻ってもget_all_questionが再実行されないので新規追加単語が表示されない
+- 原因（１）：フロントエンドとバックエンドのレスポンス形式の不一致
+- フロントエンドを作らせた後にDB設計変更を行い、idのカラムに自動採番を追加した。それに応じて`add_question`の単語追加時の返り値からidを無くした。その結果、成功時のレスポンスがフロントエンド側の条件を満たさず、エラーメッセージが表示された。
+- codexに修正を依頼
+- 追加成功時、一部追加成功後に問題管理画面に戻った時に問題一覧への新規項目の反映
+- 追加リクエスト、削除リクエスト画面に問題管理画面に一度で戻るボタンの追加
+- ↑２つを確認]
+ 
+#### Google OIDC認証時のフィッシング警告
+- Googleログインでアカウント選択後、Chromeに「危険なサイト」と表示された
+- 警告内容：Google Safe Browsingによってフィッシングが検出された
+- 警告が発生したURL：`/api/auth`
+- ＊トップページでは警告は発生しなかった
+- 発生時の状況
+- Authlibの`client_kwargs`から`prompt="select_account"`を削除した
+- その後、Googleアカウント選択後のリダイレクト先で警告が発生した。
+- Google Safe Browsingのサイト診断では「現在のステータス：データがありません」と表示された。
+- 対応と結果
+- Googleログインを最初からやり直したところ、警告が消え、正常にアクセスできた。
+- 考えられる原因
+1. Chrome Safe Browsingの一時的な判定
+2. `/api/auth`のURL固有のフィッシング判定
+3. DuckDNSの他のサブドメインに対する評価の影響
+4. `client_kwargs`の設定変更前のキャッシュが残った状態のURLでログインした
+
+####  Google OIDC認証時のフィッシング警告（再発）
+- ↑で一時解決後、１時間後に再発した
+- 一時的にサービスを停止し、原因特定を行う
+##### Google Search Consoleによるセキュリティ調査
+- 原因の特定を行うために、Webサイトの検索パフォーマンスやセキュリティ上の問題の検出を提供する Google Search Consoleを利用した
+- 手順
+```
+Google Search Consoleで「URLプレフィックス」を選択。
+https://my-webquiz.duckdns.org/を登録
+所有権確認用HTMLファイルをダウンロード
+scpでVPSに転送し、/var/www/webquiz/に配置し所有権確認
+```
+- 結果：「セキュリティと手動による対策」→「セキュリティの問題」を確認し、「不正なページ」が1件検出された
+- サイト内にユーザーを騙す可能性のあるコンテンツが存在するとされたが、問題の具体的なURL例は表示されなかった
+##### VPS内の確認
+- ファイルや設定ファイルの変更履歴や更新日時を確認
+- `SHA-256`によるハッシュ値での確認
+- OIDC認証の履歴
+- 環境変数の確認
+- ↑のようにＶＰＳ内の環境を確認したが異常はなった
+
+##### 一部セキュリティ上の脆弱性の改善
+- Nginxのログ設定にセキュリティ上の問題が見つかり、改善した
+- `access_log /var/log/nginx/access.log;`から↓に変更した
+```
+ log_format webquiz_safe '$remote_addr [$time_local] '
+                        '"$request_method $uri $server_protocol" '
+                        '$status $body_bytes_sent';
+
+access_log /var/log/nginx/access.log webquiz_safe;
+```
+- 認可コードやstateも含んだURLの記録である`$request`や認可コードのクエリパラメータがついている可能性があるrefererの記録である`$http_referer`を含めてすべてをログにしており、認可コードやstateが盗まれるリスクがあった
+
+#### 結論
+- `prompt="select_account"`はGoogleのアカウント選択画面を要求するパラメータであり、フィッシング判定を直接変更するものではない。
+- 認証途中の設定変更はOIDCの認証エラーにつながる可能性があるが、Chromeのフィッシング警告との因果関係は不明。
+- 最初から認証をやり直すことで警告は解消した。
+- 原因は特定できていないため、再発した場合はGoogle Search Consoleやサーバーログを確認する。
+
+### 次回やること
+- 同様事例の調査
+
+## 2026-11-24
+### 作業内容
+#### フィッシング警告　同様事例の調査
+- **事例**
+- OAuth2   認可コードフローでの警告
+- [Google warning - Deceptive site ahead on OAuth2 authorization code grant flow - Google Search Central Community](https://support.google.com/webmasters/thread/235924499/google-warning-deceptive-site-ahead-on-oauth2-authorization-code-grant-flow?hl=en-GB)
+- **現象**
+- 一部のユーザーにDeceptive aheadと書かれた赤い画面が表示される
+- `redirect_uri`と書かれたURL→リダイレクトの時点でエラーが発生している
+- Search Consoleには情報がない
+- 誤検知として報告すると解決扱いになるが、数日後に再発する
+- リダイレクトのURLに含まれるcodeパラメータが悪さをしているかもしれないと投稿者は推測している
+- 誤検知の報告をすると一時的に治るが、数日後に再発する
+
+- **共通事項**
+‐ 画面表示
+- Search Consoleの検出結果
+- リダイレクトのフローでエラーが発生している
+- **相違事項**
+- 趣味の個人開発ではなく、1日10万件以上のリクエストがあるサービス
+- 定期的に回復するとは書かれていない
+- 解決したかどうかは未確認
+- ドメインが無料ドメインではない可能性もある
+
+**考察**
+- 検知のタイミングやSearch Consoleの結果から同様の問題の可能性が高い
+- チャットを見た感じでは未解決
+- 誤検知報告がよさそう
+- 他の事例も探す
+
+### 設計・判断
+### 学んだこと
+### エラー・解決
+### 次回やること
+
+
+## 日時
+### 作業内容
+### 設計・判断
+### 学んだこと
+### エラー・解決
+### 次回やること
+## 日時
+### 作業内容
+### 設計・判断
+### 学んだこと
+### エラー・解決
+### 次回やること
+## 日時
+### 作業内容
+### 設計・判断
+### 学んだこと
+### エラー・解決
+### 次回やること
+## 日時
+### 作業内容
+### 設計・判断
+### 学んだこと
+### エラー・解決
+### 次回やること
+## 日時
+### 作業内容
+### 設計・判断
+### 学んだこと
+### エラー・解決
 ### 次回やること
