@@ -4002,9 +4002,20 @@ access_log /var/log/nginx/access.log webquiz_safe;
 ### エラー・解決
 ### 次回やること
 
-
-## 日時
+## 2026-11-26
 ### 作業内容
+#### CD時のビルド用Node.jsのバージョン指定追加
+- README制作時にビルド用の環境を設定していないことに気づいた
+- デプロイ用YAMLファイルを変更して指定するようにする
+- GitHub ActionsにNodeのバージョン指定用のアクションがあるので、それを使う
+- 参考:- [actions/setup-node (GitHub)](https://github.com/actions/setup-node)
+```
+      - name: Set up node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '26'
+```
+‐ 変更してpush後アプリ動作を確認
 ### 設計・判断
 ### 学んだこと
 ### エラー・解決
