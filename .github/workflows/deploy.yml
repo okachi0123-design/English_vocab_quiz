@@ -47,6 +47,10 @@ jobs:
             /home/murabito/deploy-staging/backend/ \
             /opt/webquiz/"
 
+      - name: Set up node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '26'
 
       - name: Build frontend
         run: |
