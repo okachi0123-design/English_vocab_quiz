@@ -122,7 +122,7 @@ sudo ufw status verbose          # 確認
 ### 移植手順
 ```bash
 # 1. VPSでコードを取得
-git clone https://github.com/okachi0123-design/English_vocab_quiz.git
+git clone https://github.com/binara-study/English_vocab_quiz.git
 cd English_vocab_quiz
 git pull   # 以降は pull で最新化
 

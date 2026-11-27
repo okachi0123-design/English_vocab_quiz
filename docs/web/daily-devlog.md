@@ -1240,7 +1240,7 @@ systendサービスの再起動
 ### 作業内容
 #### OAuth2.0,OIDC導入
 - OAuth,OIDCのイメージ：OAuthは竿・針・アクセストークン用の餌を提供、OIDCは追加のIDトークン用の針と餌を提供する。さらに、IDトークンの餌で釣れる魚の種類が多いから、どの種が誰のものなのかを確認するための図鑑も追加する。実際に竿や餌を使って釣るのはGoogleで、FastAPIがOIDCのやり方でGoogleに依頼してトークンを受け取り、図鑑を使ってIDトークンの正しさや「誰か」を確認する。
-- 詳しい学習記録：[OAuth-OIDC-Study-Log](https://github.com/okachi0123-design/OAuth-OIDC-Study-Log)
+- 詳しい学習記録：[OAuth-OIDC-Study-Log](https://github.com/binara-study/OAuth-OIDC-Study-Log)
 ### 設計・判断
 - AWSへの移行前に、Google OAuth 2.0 + OIDCによるログイン認証を導入する。
 - PostgreSQLで利用者ごとのデータを管理し、各利用者が独自の単語データを登録して、オリジナルクイズを作成・実施できるようにする。
@@ -1986,7 +1986,7 @@ data_failed 〇
 google_request_failed 〇
 ```
 ##### 5:ログ関数の導入
-- Pythonログの学習→ [logging.md](https://github.com/okachi0123-design/Python-study-log/blob/main/standard-library/logging.md)に記録
+- Pythonログの学習→ [logging.md](https://github.com/binara-study/Python-study-log/blob/main/standard-library/logging.md)に記録
 - ログ設計
 ```
 認証結果に応じてログレベルとメッセージを変更する。
@@ -2366,7 +2366,7 @@ def logout(request: Request, login_check_result: int = Depends(login_checker)):
 ## 2026-11-05
 ### 作業内容
 #### CSRFによるsamesiteの確認
-- CRSFの学習 [詳細](https://github.com/okachi0123-design/Security-Study-Log/blob/main/Web/CRSF.md)
+- CRSFの学習 [詳細](https://github.com/binara-study/Security-Study-Log/blob/main/Web/CRSF.md)
 - codexでCSRF用の偽サイトを作って行う
 - 命令文
 ```
@@ -2508,11 +2508,11 @@ def origin_checker(FRONTEND_URL,request: Request):
 #### GitHub ActionsのCI/CD導入
 - CSRF対策のテストを始める前に、CI/CDのCIによるテストの自動化の仕組みを作る
 ##### GitHub Actionsの学習
-‐ [詳細、制作ログ](https://github.com/okachi0123-design/DevOps-Study-Log/blob/fef6d8f967507cccabafae5bdc862a314c15e10b/CI-CD/GitHub-Actions/GitHub-Actions.md)
+‐ [詳細、制作ログ](https://github.com/binara-study/DevOps-Study-Log/blob/fef6d8f967507cccabafae5bdc862a314c15e10b/CI-CD/GitHub-Actions/GitHub-Actions.md)
 ##### pytestの学習
 - codexに作らせたテストコードのチェックやリファクタリングを行うためにpytestの学習を行う
 - 各部品を自分で作りながら確認して、codexのものと比較する　＊変更：codexに作らせたひな形の意味が分からなかったので、自分で作る
-- [学習ログ](https://github.com/okachi0123-design/Python-study-log/blob/8132071a186f5a8e784870cbb5df6b70bd28e133/testing/pytest.md)
+- [学習ログ](https://github.com/binara-study/Python-study-log/blob/8132071a186f5a8e784870cbb5df6b70bd28e133/testing/pytest.md)
 
 ### 設計・判断
 ### 学んだこと
@@ -2523,7 +2523,7 @@ def origin_checker(FRONTEND_URL,request: Request):
 ## 2026-11-08
 ### 作業内容
 #### テストコード制作
-- [詳細](https://github.com/okachi0123-design/Python-study-log/blob/8132071a186f5a8e784870cbb5df6b70bd28e133/testing/pytest.md)
+- [詳細](https://github.com/binara-study/Python-study-log/blob/8132071a186f5a8e784870cbb5df6b70bd28e133/testing/pytest.md)
 - 作成できたものは随時 testsに追加
 ### 設計・判断
 **`login_checker`の変更**
@@ -3506,7 +3506,7 @@ if latest_id_row is None:
 ## 2026-11-19
 ### 作業内容
 #### CD導入
-- [詳細](https://github.com/okachi0123-design/DevOps-Study-Log/blob/236b64e16382b63a8971abbe94cdf8812cfdc3a8/CI-CD/GitHub-Actions/GitHub-Actions.md)
+- [詳細](https://github.com/binara-study/DevOps-Study-Log/blob/236b64e16382b63a8971abbe94cdf8812cfdc3a8/CI-CD/GitHub-Actions/GitHub-Actions.md)
 - SSH設定
 - ワークフローのYAMLファイル設定
 - バックエンドのデプロイ、フロントエンドのビルド＋デプロイを実装
@@ -3767,7 +3767,7 @@ ADD CONSTRAINT eng_vocabulary_words_pkey
 PRIMARY KEY (uid, id);
 ```
 #### デプロイ
-- CI/CD連携　[詳細](https://github.com/okachi0123-design/DevOps-Study-Log/blob/236b64e16382b63a8971abbe94cdf8812cfdc3a8/CI-CD/GitHub-Actions/GitHub-Actions.md)
+- CI/CD連携　[詳細](https://github.com/binara-study/DevOps-Study-Log/blob/236b64e16382b63a8971abbe94cdf8812cfdc3a8/CI-CD/GitHub-Actions/GitHub-Actions.md)
 - `deploy.yml`にテストの実行結果を基にデプロイを実行するかの判断をさせるように`workflow_runトリガー`による連鎖を追加
 - 追加後`deploy.yml`だけをpushしてdry runをテスト
 - /opt/webquizへのrsyncで権限が無いためエラー
