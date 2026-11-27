@@ -4026,14 +4026,41 @@ access_log /var/log/nginx/access.log webquiz_safe;
 ### 作業内容
 #### docs
 - `docs`の位置をルート直下に統一
-- docs/webとdocs/cliに
-- docs/web/devlog.mdを最新版に
+- `docs/web`と`docs/cli`に
+- `docs/web/devlog.md`を最新版に
+
+#### SNS開始
+- 件の赤画面エラーの意見を得るためにSNSの運用を開始
+- 運用に開始に合わせて、GitHubのユーザー名を`binara-study`変更した
+- `git remote set-url`で開発環境のSSHのURLを変更した
+- log内のURL指定も`sed -i`で置き換えた
+
+#### Claude Codeの導入
+- AI駆動開発の学習も経験するために`Claude Code CLI`を利用した開発も行うようにする
+- WSLの開発ディレクトリ内にClaude Codeをインストール`https://code.claude.com/docs/en/overview`
+- `echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc&& source ~/.bashrc`で環境変数PATHに追加
+- `claude --version`で追加とバージョンを確認
+- テーマを選択`Auto (match terminal)`
+- 有料プランユーザー用の`❯ 1. Claude account with subscription · Individual, Team,
+or Enterprise`を選択
+‐ 提示されたurlを開いてログイン、認証パスワードをコピペでセッションを開始
+- `Yes, I trust this folder`でプロジェクト内でセッション開始
+- `このプロジェクトは何をするものか説明して`を指示して動作確認
+- 参考：[Claude Code Docs クイックスタート](https://code.claude.com/docs/ja/quickstart)
+
+
 ### 設計・判断
 #### CORS設定の修正
 - CORSの`allow_headers`に `enterd-password`と`data-change-key`が残っていたので削除した
+#### Claude Codeの導入
+- `Claude Code`をプロジェクトに導入して、AI駆動開発を導入する
+- `Codex`は解約した
+
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
+- `Claude Code CLI`を使って前回結果システムを追加
+
 ## 日時
 ### 作業内容
 ### 設計・判断
