@@ -4020,9 +4020,17 @@ access_log /var/log/nginx/access.log webquiz_safe;
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
-## 日時
+- docsの統一
+
+## 2026-11-27
 ### 作業内容
+#### docs
+- `docs`の位置をルート直下に統一
+- docs/webとdocs/cliに
+- docs/web/devlog.mdを最新版に
 ### 設計・判断
+#### CORS設定の修正
+- CORSの`allow_headers`に `enterd-password`と`data-change-key`が残っていたので削除した
 ### 学んだこと
 ### エラー・解決
 ### 次回やること
