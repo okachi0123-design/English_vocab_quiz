@@ -4061,8 +4061,24 @@ or Enterprise`を選択
 ### 次回やること
 - `Claude Code CLI`を使って前回結果システムを追加
 
-## 日時
+## 2026-11-28
 ### 作業内容
+#### Claude Code設定
+- `.claude/settings.json`を編集して、`claude code`のパーティッションを設定する
+- 拒否ルールを追加して、機密ファイルに触れられないようにする
+- 参考：[Claude Code Docs　”権限を設定する”](https://code.claude.com/docs/ja/permissions)
+```
+{
+   "permissions": {
+     "deny": [
+       "Read(./web/vps-web/backend/.env)",
+       "Read(./web/vps-web/frontend/.env)",
+       "Read(./.env)",
+       "Read(~/.ssh/**)"
+     ]
+   }
+}
+```
 ### 設計・判断
 ### 学んだこと
 ### エラー・解決
